@@ -1,0 +1,16 @@
+# Ignore the following types of files
+
+# Some automatically generated python files 
+*.pyc
+
+# Editor backup files
+*~
+
+# Matlab files
+*.mat
+*.m
+testsuite/randqps/*
+
+# Log files
+*.log
+*.out
