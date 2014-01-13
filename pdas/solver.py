@@ -1,3 +1,6 @@
+'''
+Interface taht defines the functionality of a solver.
+'''
 from prob import QP
 
 

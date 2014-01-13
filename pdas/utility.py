@@ -1,3 +1,6 @@
+'''
+Utility classes and functions that are extensively used in PDAS.
+'''
 import re
 import cvxopt
 from cvxopt import matrix, spmatrix
@@ -20,7 +23,7 @@ class OptOptions(object):
         'Solver': 'CG',
         'OptTol': 1.0e-10,
         'ResTol': 1.0e-8,
-        'MaxItr': 1000,
+        'MaxItr': 20,
         }
 
     def __init__(self, **kwargs):
@@ -114,6 +117,8 @@ class TetheredLinsys(object):
         'Make linsol apply n iterations, apply changes on solver'
         self._linsol(n)
         self.PDAS.CG_r = self.linsol.r
+#        print 'from utility', max(abs(self.linsol.r))
+
         if self.PDAS.inv_norm is None:
             self.PDAS.inv_norm = 1.1*self.linsol.inv_norm
         else:
@@ -130,8 +135,9 @@ class TetheredLinsys(object):
         ncU = len(self.PDAS.cAU)
         self.PDAS.x[self.PDAS.I] = xy[0:nI]
         self.PDAS.y = xy[nI:nI + ny]
-        self.PDAS.czl[self.PDAS.cAL] = xy[nI+ny:nI+ny+ncL]
-        self.PDAS.czu[self.PDAS.cAU] = xy[nI+ny+ncL:]
+        if self.PDAS.czl.size[0] > 0:
+            self.PDAS.czl[self.PDAS.cAL] = xy[nI+ny:nI+ny+ncL]
+            self.PDAS.czu[self.PDAS.cAU] = xy[nI+ny+ncL:]
 
     def _generate_bounds(self, B = None):
         'A general obtain bounds from an estimate of norm(invHii): B'

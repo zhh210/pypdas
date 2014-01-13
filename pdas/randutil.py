@@ -1,3 +1,6 @@
+'''
+Utility classes and functions for generating random matrices, and QP problems.
+'''
 import random
 from cvxopt import matrix, spmatrix, normal, spdiag
 from math import pi, sin, cos, pow

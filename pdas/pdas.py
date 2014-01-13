@@ -1,3 +1,7 @@
+'''
+Interface of primal-dual active-set method.
+'''
+import pdb
 import observer as obs
 from prob import QP, randQP
 from solver import solver
@@ -57,6 +61,7 @@ class PDAS(object):
         self.CG_r = matrix([10,100,1000])
         self.correctV = Violations()
         self.inv_norm = 100
+
     @property
     def cgiter(self):
         # Access _cgiter
@@ -133,6 +138,7 @@ class PDAS(object):
         # Main loop
         while self.iter < self.option['MaxItr']:
             # Do subspace minimization on current partition
+
             self.ssm()
 
             # Identify which indices are violated
@@ -150,6 +156,7 @@ class PDAS(object):
             self.iter += 1
 
         # When finished running
+        self.unregister('printer',p)
         print '-'*95
         print 'Problem Status     :', self.state
         print 'Total CG-iterations:', self.TotalCG
@@ -206,6 +213,9 @@ class PDAS(object):
             self.iter += 1
 
         # When finished running
+
+        # Unregister the conditioner, otherwise may affact next call
+        self.unregister('conditioner',c)
         print '-'*95
         print 'Problem Status     :', self.state
         print 'Total CG-iterations:', self.TotalCG
@@ -257,8 +267,9 @@ class PDAS(object):
         self.x_ub[self.I] = self.x_ub[self.I] + ub[0:nI]
         self.y_lb += lb[nI:nI + ny]
         self.y_ub += ub[nI:nI + ny]
-        self.czl_ub[self.cAL] = self.czl_ub[self.cAL] + ub[nI+ny:nI+ny+ncL]
-        self.czu_ub[self.cAU] = self.czu_ub[self.cAU] + ub[nI+ny+ncL:]
+        if self.czl_ub.size[0] > 0:
+            self.czl_ub[self.cAL] = self.czl_ub[self.cAL] + ub[nI+ny:nI+ny+ncL]
+            self.czu_ub[self.cAU] = self.czu_ub[self.cAU] + ub[nI+ny+ncL:]
 
         # Error bounds for some variables
         err_xI_lb = lb[0:nI]
@@ -309,8 +320,10 @@ class PDAS(object):
         self.x[self.AU] = self.QP.u[self.AU]
         self.zl[self.I+self.AU] = 0
         self.zu[self.I+self.AL] = 0
-        self.czl[self.cI+self.cAU] = 0
-        self.czu[self.cI+self.cAL] = 0
+
+        if self.czl.size[0] > 0:
+            self.czl[self.cI+self.cAU] = 0
+            self.czu[self.cI+self.cAL] = 0
 
     def _solve_lin(self):
         'Auxilliary function: solve the linear system exactly'
@@ -328,8 +341,9 @@ class PDAS(object):
         ncU = len(self.cAU)
         self.x[self.I] = xy[0:nI]
         self.y = xy[nI:nI + ny]
-        self.czl[self.cAL] = xy[nI+ny:nI+ny+ncL]
-        self.czu[self.cAU] = xy[nI+ny+ncL:]
+        if self.czl.size[0] > 0:
+            self.czl[self.cAL] = xy[nI+ny:nI+ny+ncL]
+            self.czu[self.cAU] = xy[nI+ny+ncL:]
 
     def _back_substitute(self):
         'Auxilliary function: back substitute after solving the linear system'
@@ -415,6 +429,7 @@ class PDAS(object):
         'Extract linear equation coefficients from QP and a partition'
         qp = self.QP
         # Concatenate active constraints with eq constraints
+
         Aeq = sparse([qp.Aeq,-qp.A[self.cAL,:],qp.A[self.cAU,:]])
         beq = matrix([qp.beq,-qp.bl[self.cAL],qp.bu[self.cAU]])
         beq -= Aeq[:,self.AL]*qp.l[self.AL] + Aeq[:,self.AU]*qp.u[self.AU]

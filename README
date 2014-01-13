@@ -1,6 +1,10 @@
 --Introduction:
 pypdas is an implementation of primal-dual active-set (PDAS) method, with inexact subproblem solves, for convex quadratic optimization problems (QPs) of the form:
-   min {1/2x'Hx + c'x | Aeq x = beq, cl <= Ax <= cu, l <= x <= u}
+   min {1/2x'Hx + c'x | Aeq x = beq, cl <= Ax <= cu, l <= x <= u}.
+Key features of this package is its:
+- Unified interface for both dense and sparse problems; 
+- Flexible control on the speed of identification of the optimal active-set;
+- Customizable subproblem (linear equation system) iterative solve.
 
 --Example:
 Run a randomly generated convex QP by executing pypdas/pdas/pdas.py, the results should be somewhat like (former: exact subproblem solve, later: inexact subproblem solve):

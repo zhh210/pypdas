@@ -1,3 +1,6 @@
+'''
+Classes holding data of QP, and other optimization problems. 
+'''
 from cvxopt import matrix, spmatrix
 from randutil import sprandsym, sp_rand
 import numpy as np
@@ -78,15 +81,16 @@ class QP(object):
             print(self.u)
         return ''
             
-def randQP(size = 10):
+def randQP(size = 10, numeq = 1, numineq = 1):
     'Function to test QP class'
     prob = dict()
     n = size
-    m = 1
+    m = numeq
+    mi = numineq
     prob['H']    = sprandsym(n)
     prob['c']    = sp_rand(n,1,1)
-    prob['A']    = sp_rand(m,n,1)
-    prob['bl']   = sp_rand(m,1,1)
+    prob['A']    = sp_rand(mi,n,1)
+    prob['bl']   = sp_rand(mi,1,1)
     prob['bu']   = prob['bl'] + 1
     prob['Aeq']  = sp_rand(m,n,0.8)
     prob['beq']  = sp_rand(m,1,1)
@@ -98,6 +102,10 @@ def randQP(size = 10):
     prob['x0']   = sp_rand(n,1,0.8)
     qp = QP(prob)
     return qp
+
+def randBQP(size = 10):
+    'Function to test bound constrained QP class'
+    return randQP(size,0,0)
 
 if __name__ == '__main__':
     'When called from command line.'

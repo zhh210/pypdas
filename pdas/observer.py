@@ -1,4 +1,6 @@
-
+'''
+Classes controling the behavior of different observers (printer, condioner, monitor, etc.).
+'''
 class observer(object):
     '''Base class for observer '''
     def __init__(self,PDAS):
@@ -23,18 +25,18 @@ class printer(observer):
             print '='*95
         print '{iter:>6d}  {obj:^12.2e}  {kkt:^12.2e}  {AL:>6d}  {AU:>6d}  {I:>6d}  {V:>6d}  {cV:>6d}   {inv:>6.2e}  {CGiter:>6d}'.format(iter=p.iter,obj=p._compute_obj(), kkt=p.kkt,AL=len(p.AL),AU=len(p.AU),I=len(p.I),V=p.lenV,cV=p.correctV.lenV,inv=p.inv_norm,CGiter=p.cgiter)
 
-class conditioner(observer):
+class conditioner(object):
     'Conditioner class'
     option = {
         'CG_res_absolute' : 1.0e-16,
-        'CG_res_relative' : 1.0e-3,
+        'CG_res_relative' : 1.0e-10,
         'identified_estimated_ratio' : 0.8
         }
-    def __init__(self,iPDAS,**kwarg):
+    def __init__(self,iPDAS):
         'Attach conditioner to solver iPDAS'
         self.solver = iPDAS
         self.option = dict(conditioner.option)
-        self.option.update(kwarg)
+#        self.option.update(kwarg)
 
     def __call__(self,what = {}):
         'Return whether the condition is satisfied'
@@ -45,11 +47,19 @@ class conditioner(observer):
              or self.is_identified_estimate()
              or self.all_identified())
         )
+        # print (self.enforce_exact(),
+        #        self.is_CG_res_absolute() ,
+        #        self.is_CG_res_relative(),
+        #        self.is_identified_estimate(),
+        #        self.all_identified())
 
         return satisfied
 
     def is_CG_res_absolute(self):
         'Linear solver has satisfied absolute tolerance'
+        # print 'from observer', max(abs(self.solver.CG_r))
+        # print 'from observer', self.solver.state
+        # print 'from observer', self.solver.iter
         return max(abs(self.solver.CG_r)) < self.option['CG_res_absolute']
     
     def is_CG_res_relative(self):
