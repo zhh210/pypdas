@@ -157,10 +157,10 @@ class PDAS(object):
 
         # When finished running
         self.unregister('printer',p)
-        print '-'*95
+        print '-'*78
         print 'Problem Status     :', self.state
         print 'Total CG-iterations:', self.TotalCG
-        print '-'*95+'\n\n'
+        print '-'*78+'\n\n'
 
     def inexact_solve(self):
         'Solve the attached problem by exact solver'
@@ -216,10 +216,10 @@ class PDAS(object):
 
         # Unregister the conditioner, otherwise may affact next call
         self.unregister('conditioner',c)
-        print '-'*95
+        print '-'*78
         print 'Problem Status     :', self.state
         print 'Total CG-iterations:', self.TotalCG
-        print '-'*95+'\n\n'
+        print '-'*78+'\n\n'
 
 
     def identify_violation(self, by = None):

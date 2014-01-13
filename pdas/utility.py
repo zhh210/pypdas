@@ -23,7 +23,7 @@ class OptOptions(object):
         'Solver': 'CG',
         'OptTol': 1.0e-10,
         'ResTol': 1.0e-8,
-        'MaxItr': 20,
+        'MaxItr': 1000,
         }
 
     def __init__(self, **kwargs):

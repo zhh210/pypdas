@@ -20,10 +20,11 @@ class printer(observer):
         p = self.solver
         v = self.solver.violations
         if p.iter == 0:
-            print '='*95
-            print '   Iter       Obj         KKT          |AL|    |AU|    |I|     |V|     |cV|   invnorm  CG-iter'
-            print '='*95
-        print '{iter:>6d}  {obj:^12.2e}  {kkt:^12.2e}  {AL:>6d}  {AU:>6d}  {I:>6d}  {V:>6d}  {cV:>6d}   {inv:>6.2e}  {CGiter:>6d}'.format(iter=p.iter,obj=p._compute_obj(), kkt=p.kkt,AL=len(p.AL),AU=len(p.AU),I=len(p.I),V=p.lenV,cV=p.correctV.lenV,inv=p.inv_norm,CGiter=p.cgiter)
+            num = 78
+            print '='*num
+            print 'Iter     Obj         KKT        |AL|  |AU|  |I|   |V|   |cV|   invnorm  CG-IT'
+            print '='*num
+        print '{iter:>d}  {obj:^12.2e}  {kkt:^12.2e}  {AL:>4d}  {AU:>4d}  {I:>4d}  {V:>4d}  {cV:>4d}   {inv:>6.2e}  {CGiter:>4d}'.format(iter=p.iter,obj=p._compute_obj(), kkt=p.kkt,AL=len(p.AL),AU=len(p.AU),I=len(p.I),V=p.lenV,cV=p.correctV.lenV,inv=p.inv_norm,CGiter=p.cgiter)
 
 class conditioner(object):
     'Conditioner class'
