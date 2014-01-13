@@ -22,15 +22,15 @@ def Laplace(n):
         for j in range(0,n):
             # At the inner of the
             y = spmatrix([],[],[],(n,n))
-            y[i,j] = -4.0
+            y[i,j] = -4
             if i != 0:
-                y[i-1,j] = 1.0
+                y[i-1,j] = 1
             if i != n-1:
-                y[i+1,j] = 1.0
+                y[i+1,j] = 1
             if j != 0:
-                y[i,j-1] = 1.0
+                y[i,j-1] = 1
             if j != n-1:
-                y[i,j+1] = 1.0
+                y[i,j+1] = 1
 
             y.size = (1,n**2)
             L[getid(i,j,n),:] = y
@@ -40,7 +40,8 @@ def Laplace(n):
 def geteq(n):
     'generate the equality constraints.'
     Aeq = Laplace(n)
-    eq2 = identity(n**2)
+    h = 1.0/(n+1)
+    eq2 = identity(n**2,h**2)
     Aeq = sparse([[Aeq],[eq2]])
     beq = spmatrix([],[],[],(n**2,1))
     return (Aeq, beq)
@@ -100,7 +101,9 @@ def test_control(n=10,beta=1.0e-5,phi=0):
     qp = getQP(n,beta,phi)
     pdas = PDAS(qp)
     pdas2 = copy(pdas)
+    print 'Solving optimal control problem by exact subproblem solve.'
     pdas.exact_solve()
+    print 'Solving optimal control problem by inexact subproblem solve.'
     pdas2.inexact_solve()
 
 if __name__ == '__main__':

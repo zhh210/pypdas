@@ -29,19 +29,23 @@ bqp2 = randQP(size = 100, numeq = 0, numineq = 0)
 
 # Solve the random bound constrained QP by PDAS with exact solve
 pdas = PDAS(bqp1)
+print 'Solving random bound-constrained QP with exact subproblem solve:'
 pdas.exact_solve()
 
 # Solve the random bound constrained QP by PDAS with inexact solve
 # import pdb
 # pdb.set_trace()
 pdas2 = PDAS(bqp2)
+print 'Solving random bound-constrained QP with inexact subproblem solve:'
 pdas2.inexact_solve()
 
 
 # Solve the random bound constrained QP by PDAS with exact solve
 pdas3 = PDAS(qp1)
+print 'Solving random constrained QP with exact subproblem solve:'
 pdas3.exact_solve()
 
 # Solve the random bound constrained QP by PDAS with inexact solve
 pdas4 = PDAS(qp2)
+print 'Solving random constrained QP with inexact subproblem solve:'
 pdas4.inexact_solve()

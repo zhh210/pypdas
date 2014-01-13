@@ -95,7 +95,7 @@ class CG(object):
 
         return self.x
 
-    def cond_res(self,restol=1.0e-16):
+    def cond_res(self,restol=1.0e-10):
         'Condition on whether residual is sufficiently small'
         return max(abs(self.r)) < restol
 
