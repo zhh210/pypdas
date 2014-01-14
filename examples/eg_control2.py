@@ -59,7 +59,7 @@ def geteq(n,dic):
         AeqB = sparse([AeqB,y])
     
     AeqL = sparse([[AeqL],[spmatrix([],[],[],(n**2,n*4))]])
-    AeqB = sparse([[AeqB],[-identity(4*n,h**2)]])
+    AeqB = sparse([[AeqB],[-identity(4*n,h*2)]])
 
     Aeq = sparse([AeqL,AeqB])
     beq = spmatrix([],[],[],(n**2+4*n,1))
