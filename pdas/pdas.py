@@ -229,14 +229,22 @@ class PDAS(object):
             by = self
         # Violated sets, or estimated violation sets for inexact case
         p = Violations()
-        p.Vxl  = pick_negative(by.x - qp.l)[1]
-        p.Vxu  = pick_negative(qp.u - by.x)[1]
-        p.Vxcl = pick_negative(qp.A*by.x - qp.bl)[1]
-        p.Vxcu = pick_negative(qp.bu - qp.A*by.x)[1]
-        p.Vzl  = pick_negative(by.zl)[1]
-        p.Vzu  = pick_negative(by.zu)[1]
-        p.Vzcl = pick_negative(by.czl)[1]
-        p.Vzcu = pick_negative(by.czu)[1]
+        Vxl  = pick_negative(by.x[self.I] - qp.l[self.I])[1]
+        p.Vxl  = [self.I[i] for i in Vxl]
+        Vxu  = pick_negative(qp.u[self.I] - by.x[self.I])[1]
+        p.Vxu  = [self.I[i] for i in Vxu]
+        Vxcl = pick_negative(qp.A[self.cI,:]*by.x - qp.bl[self.cI])[1]
+        p.Vxcl = [self.cI[i] for i in Vxcl]
+        Vxcu = pick_negative(qp.bu[self.cI] - qp.A[self.cI,:]*by.x)[1]
+        p.Vxcu = [self.cI[i] for i in Vxcu]
+        Vzl  = pick_negative(by.zl[self.AL])[1]
+        p.Vzl  = [self.AL[i] for i in Vzl]
+        Vzu  = pick_negative(by.zu[self.AU])[1]
+        p.Vzu  = [self.AU[i] for i in Vzu]
+        Vzcl = pick_negative(by.czl[self.cAL])[1]
+        p.Vzcl = [self.cAL[i] for i in Vzcl]
+        Vzcu = pick_negative(by.czu[self.cAU])[1]
+        p.Vzcu = [self.cAU[i] for i in Vzcu]
 
         return p
 
@@ -292,15 +300,28 @@ class PDAS(object):
         # Generate the correctly identified violated sets
         
         correct = self.correctV
-        correct.Vxl  = pick_negative(self.x_ub - qp.l)[1]
-        correct.Vxu  = pick_negative(qp.u - self.x_lb)[1]
+        Vxl  = pick_negative(self.x_ub[self.I] - qp.l[self.I])[1]
+        Vxu  = pick_negative(qp.u[self.I] - self.x_lb[self.I])[1]
 
-        correct.Vxcl = pick_negative(self.Ax_ub - qp.bl)[1]
-        correct.Vxcu = pick_negative(qp.bu - self.Ax_lb)[1]
-        correct.Vzl  = pick_negative(self.zl_ub)[1]
-        correct.Vzu  = pick_negative(self.zu_ub)[1]
-        correct.Vzcl = pick_negative(self.czl_ub)[1]
-        correct.Vzcu = pick_negative(self.czu_ub)[1]
+        Vxcl = pick_negative(self.Ax_ub[self.cI] - qp.bl[self.cI])[1]
+        Vxcu = pick_negative(qp.bu[self.cI] - self.Ax_lb[self.cI])[1]
+        Vzl  = pick_negative(self.zl_ub[self.AL])[1]
+        Vzu  = pick_negative(self.zu_ub[self.AU])[1]
+        Vzcl = pick_negative(self.czl_ub[self.cAL])[1]
+        Vzcu = pick_negative(self.czu_ub[self.cAU])[1]
+
+
+        correct.Vxl  = [self.I[i] for i in Vxl]
+        correct.Vxu  = [self.I[i] for i in Vxu]
+                
+        correct.Vxcl = [self.cI[i] for i in Vxcl]
+        correct.Vxcu = [self.cI[i] for i in Vxcu]
+        correct.Vzl  = [self.AL[i] for i in Vzl]
+        correct.Vzu  = [self.AU[i] for i in Vzu]
+        correct.Vzcl = [self.cAL[i] for i in Vzcl]
+        correct.Vzcu = [self.cAU[i] for i in Vzcu]
+
+
         lenV = len(correct.Vxl + correct.Vxu+correct.Vxcl+correct.Vxcu+correct.Vzl+correct.Vzu+correct.Vzcl+correct.Vzcu)
         return lenV
 
