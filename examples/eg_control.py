@@ -107,4 +107,4 @@ def test_control(n=10,beta=1.0e-5,phi=0):
     pdas2.inexact_solve()
 
 if __name__ == '__main__':
-    test_control()
+    test_control(100)

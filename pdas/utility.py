@@ -163,10 +163,45 @@ def setdiff(x,y):
     'Set operation: return elements in x but not in y in ascending order'
     return [i for i in set(x) if i not in set(y)]
 
+#@profile
 def estimate_range(A,xl,xu):
-    'Estimate the range of Ax, where xl <= x <= xu'
-    bl = cvxopt.min(A,0)*xu + cvxopt.max(A,0)*xl
-    bu = cvxopt.min(A,0)*xl + cvxopt.max(A,0)*xu
+    '''
+    Estimate the range of Ax, where xl <= x <= xu
+    Mathematically, the lower and upper bounds are:
+    '''
+    # Decide if A is sparse
+    # if 'sp' in str(type(A)) or 'sparse' in str(type(A)):
+    #    pass
+
+
+    # Efficient, exploit the sparsity of A
+    Apos = copy(A)
+    Aneg = copy(A)
+
+    Apos.V = cvxopt.max(Apos.V,0)
+    Aneg.V = cvxopt.min(Aneg.V,0)
+
+    bl = Apos*xl + Aneg*xu
+    bu = Apos*xu + Aneg*xl
+
+    # Relatively efficient, but dense matrix means overhead
+    # bl = cvxopt.min(A,0)*xu + cvxopt.max(A,0)*xl
+    # bu = cvxopt.min(A,0)*xl + cvxopt.max(A,0)*xu
+
+    # This version is less efficient
+    # row, col = A.size
+    # bl = matrix(10.0,size=(row,1))
+    # bu = matrix(10.0,size=(row,1))
+    # for i in range(row):
+    #     for j in range(col):
+    #         if A[i,j] > 0.0:
+    #             bl[i] += A[i,j]*xl[j]
+    #             bu[i] += A[i,j]*xu[j]
+    #         elif A[i] < 0.0:
+    #             print A.size, xl.size, xu.size, i,j
+    #             bl[i] += A[i,j]*xu[j]
+    #             bu[i] += A[i,j]*xl[j]
+
     return (bl,bu)
 
 # Functions for internal test
