@@ -30,7 +30,7 @@ class conditioner(object):
     'Conditioner class'
     option = {
         'CG_res_absolute' : 1.0e-16,
-        'CG_res_relative' : 1.0e-10,
+        'CG_res_relative' : 1.0e-3,
         'identified_estimated_ratio' : 0.8
         }
     def __init__(self,iPDAS):
@@ -42,11 +42,13 @@ class conditioner(object):
     def __call__(self,what = {}):
         'Return whether the condition is satisfied'
         satisfied = (
-            (not self.enforce_exact())
-             and (self.is_CG_res_absolute() 
-             or self.is_CG_res_relative()
-             or self.is_identified_estimate()
-             or self.all_identified())
+            ((not self.enforce_exact())
+             and self.at_least_one()
+#             and (self.is_CG_res_absolute() 
+#             and self.is_CG_res_relative()
+             and self.is_identified_estimate())
+#             or self.all_identified()
+             or self.is_CG_res_absolute()
         )
         # print (self.enforce_exact(),
         #        self.is_CG_res_absolute() ,
@@ -76,6 +78,10 @@ class conditioner(object):
             lenEstimated += len(getattr(self.solver.violations,key))
         #print lenIdentified, lenEstimated
         return lenIdentified > self.option['identified_estimated_ratio']*lenEstimated
+
+    def at_least_one(self):
+        'At least one violation is identified.'
+        return self.solver.correctV.lenV >= 1
 
     def all_identified(self):
         'All violations have been identified'
