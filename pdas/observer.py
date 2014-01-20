@@ -24,7 +24,7 @@ class printer(observer):
             print '='*num
             print 'Iter     Obj         KKT        |AL|  |AU|  |I|   |V|   |cV|   invnorm  CG-IT'
             print '='*num
-        print '{iter:>d}  {obj:^12.2e}  {kkt:^12.2e}  {AL:>4d}  {AU:>4d}  {I:>4d}  {V:>4d}  {cV:>4d}   {inv:>6.2e}  {CGiter:>4d}'.format(iter=p.iter,obj=p._compute_obj(), kkt=p.kkt,AL=len(p.AL),AU=len(p.AU),I=len(p.I),V=p.lenV,cV=p.correctV.lenV,inv=p.inv_norm,CGiter=p.cgiter)
+        print '{iter:>4d}  {obj:^12.2e}  {kkt:^12.2e}  {AL:>4d}  {AU:>4d}  {I:>4d}  {V:>4d}  {cV:>4d}   {inv:>6.2e}  {CGiter:>4d}'.format(iter=p.iter,obj=p._compute_obj(), kkt=p.kkt,AL=len(p.AL),AU=len(p.AU),I=len(p.I),V=p.lenV,cV=p.correctV.lenV,inv=p.inv_norm,CGiter=p.cgiter)
 
 class conditioner(object):
     'Conditioner class'

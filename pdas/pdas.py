@@ -409,6 +409,10 @@ class PDAS(object):
 
         self.I = setdiff(range(self.QP.numvar),union(self.AL,self.AU))
 
+        if self.QP.A.size[0] > 0:
+            self.cAL = pick_negative(self.QP.bl - self.QP.A*x0 - eps)[1]
+            self.cAU = pick_negative(self.QP.A*x0 - self.QP.bu - eps)[1]
+
     @property
     def kkt(self):
         'Access the value of kkt'
