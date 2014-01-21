@@ -253,31 +253,21 @@ class PDAS(object):
         # Estimate violation
         self.violations = self.identify_violation()
 
-        # Initialize bounds
-        self.x_lb = copy(self.x)
-        self.x_ub = copy(self.x)
-        self.y_lb = copy(self.y)
-        self.y_ub = copy(self.y)
-        self.zl_ub = copy(self.zl)
-        self.zu_ub = copy(self.zu)
-        self.czl_ub = copy(self.czl)
-        self.czu_ub = copy(self.czu)
-        self.Ax_lb = copy(self.Ax)
-        self.Ax_ub = copy(self.Ax)
-
+        # Obtain sizes
         nI = len(self.I)
         ny = self.QP.numeq
         ncL = len(self.cAL)
         ncU = len(self.cAU)
 
         # Bound for some variables
-        self.x_lb[self.I] = self.x_lb[self.I] + lb[0:nI]
-        self.x_ub[self.I] = self.x_ub[self.I] + ub[0:nI]
-        self.y_lb += lb[nI:nI + ny]
-        self.y_ub += ub[nI:nI + ny]
-        if self.czl_ub.size[0] > 0:
-            self.czl_ub[self.cAL] = self.czl_ub[self.cAL] + ub[nI+ny:nI+ny+ncL]
-            self.czu_ub[self.cAU] = self.czu_ub[self.cAU] + ub[nI+ny+ncL:]
+        xI_lb = self.x[self.I] + lb[0:nI]
+        xI_ub = self.x[self.I] + ub[0:nI]
+
+        czl_cAL_ub = []
+        czu_cAU_ub = []
+        if self.czl.size[0] > 0:
+            czl_cAL_ub = self.czl[self.cAL] + ub[nI+ny:nI+ny+ncL]
+            czu_cAU_ub = self.czu[self.cAU] + ub[nI+ny+ncL:]
 
         # Error bounds for some variables
         err_xI_lb = lb[0:nI]
@@ -287,28 +277,27 @@ class PDAS(object):
         qp = self.QP
         eq_err_zl = sparse([[qp.H[self.AL,self.I]], [qp.Aeq[:,self.AL].T], [-qp.A[self.cAL,self.AL].T],[qp.A[self.cAU,self.AL].T]])
         eq_err_zu = -sparse([[qp.H[self.AU,self.I]], [qp.Aeq[:,self.AU].T], [-qp.A[self.cAL,self.AU].T],[qp.A[self.cAU,self.AU].T]])
-        eq_err_Ax = sparse([qp.A[:,self.I]])
+        eq_err_Ax = sparse([qp.A[self.cI,self.I]])
 
         # Bound for other variables
-        self.zl_ub[self.AL] = self.zl_ub[self.AL] + estimate_range(eq_err_zl,lb,ub)[1]
-        self.zu_ub[self.AU] = self.zu_ub[self.AU] + estimate_range(eq_err_zu,lb,ub)[1]
+        zlAL_ub = self.zl[self.AL] + estimate_range(eq_err_zl,lb,ub)[1]
+        zuAU_ub = self.zu[self.AU] + estimate_range(eq_err_zu,lb,ub)[1]
         err_Ax_lb, err_Ax_ub = estimate_range(eq_err_Ax,err_xI_lb,err_xI_ub)
 
-        self.Ax_lb = self.Ax_lb + err_Ax_lb
-        self.Ax_ub = self.Ax_ub + err_Ax_ub
+        Ax_cI_lb = self.Ax[self.cI] + err_Ax_lb
+        Ax_cI_ub = self.Ax[self.cI] + err_Ax_ub
 
         # Generate the correctly identified violated sets
-        
         correct = self.correctV
-        Vxl  = pick_negative(self.x_ub[self.I] - qp.l[self.I])[1]
-        Vxu  = pick_negative(qp.u[self.I] - self.x_lb[self.I])[1]
+        Vxl  = pick_negative(xI_ub - qp.l[self.I])[1]
+        Vxu  = pick_negative(qp.u[self.I] - xI_lb)[1]
 
-        Vxcl = pick_negative(self.Ax_ub[self.cI] - qp.bl[self.cI])[1]
-        Vxcu = pick_negative(qp.bu[self.cI] - self.Ax_lb[self.cI])[1]
-        Vzl  = pick_negative(self.zl_ub[self.AL])[1]
-        Vzu  = pick_negative(self.zu_ub[self.AU])[1]
-        Vzcl = pick_negative(self.czl_ub[self.cAL])[1]
-        Vzcu = pick_negative(self.czu_ub[self.cAU])[1]
+        Vxcl = pick_negative(Ax_cI_ub - qp.bl[self.cI])[1]
+        Vxcu = pick_negative(qp.bu[self.cI] - Ax_cI_lb)[1]
+        Vzl  = pick_negative(zlAL_ub)[1]
+        Vzu  = pick_negative(zuAU_ub)[1]
+        Vzcl = pick_negative(czl_cAL_ub)[1]
+        Vzcu = pick_negative(czu_cAU_ub)[1]
 
 
         correct.Vxl  = [self.I[i] for i in Vxl]
