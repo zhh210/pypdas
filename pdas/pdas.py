@@ -5,11 +5,13 @@ import pdb
 import observer as obs
 from prob import QP, randQP
 from solver import solver
+from scipy.sparse.linalg import minres
 import numpy as np
 import utility as ut
 from utility import setdiff, intersect, union, CG, estimate_range, TetheredLinsys, Violations
 from cvxopt import matrix, spmatrix, sparse, cholmod
 from copy import copy
+from convert import cvxopt_to_numpy_matrix, numpy_to_cvxopt_matrix
 
 class PDAS(object):
 
@@ -339,12 +341,19 @@ class PDAS(object):
         'Auxilliary function: solve the linear system exactly'
         # Linear equation coefficients
         Lhs, rhs, x0 = self._get_lineq()
-
         # Set x[I], y, czl, czu by solving linear equation
         # xy = cholmod.splinsolve(Lhs,rhs)
-        cg = CG(Lhs,rhs,x0)
-        xy = cg.solve(cg.cond_res)
-        self.cgiter = cg.iter
+
+        # Convert to numpy/scipy matrix
+        Lhs = cvxopt_to_numpy_matrix(Lhs)
+        rhs = cvxopt_to_numpy_matrix(matrix(rhs))
+        x0 = cvxopt_to_numpy_matrix(x0)
+
+        # Solve the linear system
+        cg = minres(Lhs,rhs,x0,tol=1.0e-16)
+        xy = numpy_to_cvxopt_matrix(cg[0])
+        self.cgiter = cg[1]
+
         nI = len(self.I)
         ny = self.QP.numeq
         ncL = len(self.cAL)
