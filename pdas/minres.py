@@ -1,6 +1,7 @@
 '''
 Python implementation of MINRES, a translation of Jeffery Kline's implementation to the OO manner.
 Original author's code available on http://pages.cs.wisc.edu/~kline/cvxopt/
+Under translation
 '''
 
 from cvxopt import matrix
@@ -137,7 +138,7 @@ class MINRES(object):
         self.option['shift'] = 0.0
         self.option['show'] = False
         self.option['check'] = False
-        self.option['itnlim'] = None   
+        self.option['itnlim'] = None
         self.option['rtol'] = 1e-7
         self.option['eps'] = 2.2e-16
         self.option['msg'] = (' beta2 = 0.  If M = I, b and x are eigenvectors '   ,
@@ -153,7 +154,7 @@ class MINRES(object):
            ' M  does not define a pos-def preconditioner    ')
 
         self.A = A
-        self.b = b
+        self.b = matrix(b)
         self.n = A.size[0]
         self.iter = 0
         if x0 is not None:
@@ -176,9 +177,8 @@ class MINRES(object):
             print '\n itnlim =%8g    rtol  =%10.2e\n'  % (itnlim,rtol)
 
 
-        self.istop = 0;   self.itn   = 0;   self.Anorm = 0;    
-        self.Acond = 0;   self.rnorm = 0;   self.ynorm = 0;   
-        self.done  = False;
+        self.istop = 0;   self.Anorm = 0;    
+        self.Acond = 0;   self.rnorm = nrm2(self.b);   self.ynorm = 0;   
 
 
         """
@@ -188,10 +188,10 @@ class MINRES(object):
         % v is really P' v1.
         %------------------------------------------------------------------
         """
-        self.y     = +b;
-        self.r1    = +b;
+        self.y     = matrix(b);
+        self.r1    = matrix(b);
         if self.precon:        M(self.y)              # y = minresxxxM( M,b ); end
-        self.beta1 = dotu(b, self.y)                  # beta1 = b'*y;
+        self.beta1 = dotu(self.b, self.y)                  # beta1 = b'*y;
 
         """
         %  Test for an indefinite preconditioner.
@@ -211,8 +211,8 @@ class MINRES(object):
         % Initialize other quantities.
         % ------------------------------------------------------------------
         """
-        self.oldb = 0; self.beta = copy(self.beta1); self.dbar = 0; self.epsln  = 0;
-        self.qrnorm=copy(self.beta1); self.phibar=copy(self.beta1);self.rhs1=copy(self.beta1);
+        self.oldb = 0; self.beta = self.beta1; self.dbar = 0; self.epsln  = 0;
+        self.qrnorm=self.beta1; self.phibar=self.beta1;self.rhs1=self.beta1;
         self.rhs2= 0; self.tnorm2 = 0; self.ynorm2 = 0;
         self.cs     = -1;   self.sn     = 0;
         self.Arnorm = 0;
@@ -239,8 +239,10 @@ class MINRES(object):
         shift = self.option['shift'];
         precon = self.precon; 
         eps=self.option['eps'];
+
         rtol = self.option['rtol']; 
         itnlim = self.option['itnlim']; 
+
 
         for i in range(times):
             #---------
@@ -271,7 +273,7 @@ class MINRES(object):
             scal(s, self.v)
             # Original function form, depreciated
             # A(v,y)
-            gemv(self.A,self.v,self.y,'N')
+            gemv(matrix(self.A),self.v,self.y,'N')
             if abs(shift)>0:            axpy(self.v,self.y,-shift)
             if self.iter >= 2:          axpy(self.r1,self.y,-self.beta/self.oldb)
 
@@ -289,7 +291,7 @@ class MINRES(object):
             if precon:  M(y)        # y = minresxxxM( M,r2 ); # end if
             self.oldb   = self.beta;              # oldb = self.betak
             self.beta   = dotu(self.r2,self.y)         # self.beta = self.betak+1^2
-            if self.beta < 0: self.istop = 6;  break # end if
+            # commented by zheng if self.beta < 0: self.istop = 6;  break # end if
             self.beta   = sqrt(self.beta)
             self.tnorm2 = self.tnorm2 + alfa**2 + self.oldb**2 + self.beta**2
 
@@ -300,7 +302,7 @@ class MINRES(object):
                 # end if
                 # %self.tnorm2 = alfa**2  ??
                 self.gmax   = abs(alfa)      # alpha1
-                self.gmin   = copy(self.gmax)           # alpha1
+                self.gmin   = self.gmax           # alpha1
             # end if
             """
             % Apply previous rotation Qk-1 to get
@@ -309,10 +311,10 @@ class MINRES(object):
             """
             oldeps = self.epsln
             delta  = self.cs*self.dbar + self.sn*alfa  # delta1 = 0         deltak
-            gbar   = self.sn*self.dbar - self.cs*alfa  # gbar 1 = alfa1     gbar k
+            self.gbar   = self.sn*self.dbar - self.cs*alfa  # gbar 1 = alfa1     gbar k
             self.epsln  =           self.sn*self.beta  # self.epsln2 = 0         self.epslnk+1
             self.dbar   =         - self.cs*self.beta  # self.dbar 2 = self.beta2     self.dbar k+1
-            root   = sqrt(gbar**2 + self.dbar**2)
+            root   = sqrt(self.gbar**2 + self.dbar**2)
             self.Arnorm = self.phibar*root;       # ||Ar{k-1}||
             """
             % Compute the next plane rotation Qk
@@ -321,8 +323,8 @@ class MINRES(object):
             cs     = gbar/gamma;        % ck
             sn     = self.beta/gamma;        % sk
             """
-            self.cs,self.sn,gamma=SymOrtho(gbar,self.beta)
-            phi    = self.cs * self.phibar ;      # phik
+            self.cs,self.sn,gamma=SymOrtho(self.gbar,self.beta)
+            self.phi    = self.cs * self.phibar ;      # phik
             self.phibar = self.sn * self.phibar ;      # self.phibark+1
 
             """
@@ -345,7 +347,7 @@ class MINRES(object):
             axpy(self.w1,    self.w,-oldeps)
             axpy(self.v,     self.w)
             scal(denom, self.w)
-            axpy(self.w,     self.x, phi)
+            axpy(self.w,     self.x, self.phi)
             """
             % Go round again.
             """
@@ -353,24 +355,24 @@ class MINRES(object):
             self.gmin   = min(self.gmin, gamma);
             z      = self.rhs1/gamma;
             # ynorm2 = z**2  + ynorm2;
-            ynorm2 = nrm2(self.x)**2
+            self.ynorm2 = nrm2(self.x)**2
             #rhs1   = rhs2 - delta*z;
             #rhs2   =      - self.epsln*z;
             """
             % Estimate various norms.
             """
-            Anorm  = sqrt( self.tnorm2 )
-            ynorm  = sqrt( ynorm2 )
-            epsa   = Anorm*eps;
-            epsx   = Anorm*ynorm*eps;
-            epsr   = Anorm*ynorm*rtol;
-            diag   = gbar;
+            self.Anorm  = sqrt( self.tnorm2 )
+            self.ynorm  = sqrt( self.ynorm2 )
+            epsa   = self.Anorm*eps;
+            epsx   = self.Anorm*self.ynorm*eps;
+            epsr   = self.Anorm*self.ynorm*rtol;
+            diag   = self.gbar;
             if diag==0: diag = epsa;    # end if
 
-            qrnorm = self.phibar;
-            self.rnorm  = qrnorm;
-            test1  = self.rnorm/(Anorm*ynorm); #  ||r|| / (||A|| ||x||)
-            test2  = root / Anorm; # ||Ar{k-1}|| / (||A|| ||r_{k-1}||)
+            self.qrnorm = self.phibar;
+            self.rnorm  = self.qrnorm;
+            test1  = self.rnorm/(self.Anorm*self.ynorm); #  ||r|| / (||A|| ||x||)
+            test2  = root / self.Anorm; # ||Ar{k-1}|| / (||A|| ||r_{k-1}||)
             """
             % Estimate  cond(A).
             % In this version we look at the diagonals of  R  in the
@@ -403,8 +405,8 @@ class MINRES(object):
             if self.iter    <= 10       : prnt = True; # end if
             if self.iter    >= itnlim-10: prnt = True; # end if
             if self.iter%10 == 0        : prnt = True  # end if
-            if qrnorm <= 10*epsx  : prnt = True; # end if
-            if qrnorm <= 10*epsr  : prnt = True; # end if
+            if self.qrnorm <= 10*epsx  : prnt = True; # end if
+            if self.qrnorm <= 10*epsr  : prnt = True; # end if
             if Acond  <= 1e-2/eps : prnt = True; # end if
             if self.istop  !=  0       : prnt = True; # end if
 
@@ -416,8 +418,7 @@ class MINRES(object):
                 print sts1, str2, str3
             # end if
             #if abs(self.istop) > 0: break;        # end if
-            print 'end', sum(abs(self.r2))
-            print self.rnorm
+
 
             #---------
         return self.x
@@ -437,6 +438,7 @@ class MINRES(object):
             print ' rnorm   =  %12.4e      ynorm =  %12.4e' % (rnorm,ynorm)
             print ' Arnorm  =  %12.4e' % Arnorm
             print msg[istop+2]
-        return self.x, self.istop, self.iter, self.rnorm, self.Arnorm, self.Anorm, self.Acond, self.ynorm
+        print self.rnorm, nrm2(self.A*self.x-self.b)
+        return self.x # self.istop, self.iter, self.rnorm, self.Arnorm, self.Anorm, self.Acond, self.ynorm
 
 
