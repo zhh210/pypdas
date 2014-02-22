@@ -8,10 +8,11 @@ from solver import solver
 from scipy.sparse.linalg import minres
 import numpy as np
 import utility as ut
-from utility import setdiff, intersect, union, CG, estimate_range, TetheredLinsys, Violations
+from utility import setdiff, intersect, union, CG, estimate_range, TetheredLinsys, Violations, LinsysWrap
 from cvxopt import matrix, spmatrix, sparse, cholmod
 from copy import copy
 from convert import cvxopt_to_numpy_matrix, numpy_to_cvxopt_matrix
+import inspect
 
 class PDAS(object):
 
@@ -169,7 +170,9 @@ class PDAS(object):
         # Attach necessary observers, does not work!!
         self._ObserverList['printer'] = []
         p = obs.printer(self)
+        k = obs.monitor(self)
         self.register('printer',p)
+        self.register('monitor',k)
 
         c = obs.conditioner(self)
         self.register('conditioner',c)
@@ -182,29 +185,13 @@ class PDAS(object):
             # Fix active primals and inactive duals
             self._fix()
 
-            # Obtain linear equation coefficients
-            Lhs, rhs, x0 = self._get_lineq()
-
-            # Tether a linear equation solver to
-            # Solve the linear system approximately, 
-            # and obtain lower and upper bounds
-            Linsol = CG(Lhs,rhs,x0)
-            Linsys = TetheredLinsys(self,Linsol)
-
-            while True:
-                # Apply linear system iterations, update some vars
-                lb, ub = Linsys.iter()
-                # Yield solution for other (dual) variables
-                self._back_substitute()
-
-                # Find correctly violated sets: correctV
-                self.identify_violation_inexact(lb,ub)
-                if self.ask('conditioner') is True:
-                    break
+            # Let the LinsysWrap calculate an inexact solution and modify PDAS
+            L = LinsysWrap(self,minres)
+            L.solve()
 
             # Notify observers about this iteration
-            self.cgiter = Linsol.iter
-            self.notify(['printer'])
+            self.cgiter = L.iter
+            self.notify(['printer','monitor'])
             # Optimality check
             if self.kkt < self.option['OptTol']:
                 self.state = 'Optimal'
@@ -350,9 +337,10 @@ class PDAS(object):
         x0 = cvxopt_to_numpy_matrix(x0)
 
         # Solve the linear system
-        cg = minres(Lhs,rhs,x0,tol=1.0e-16)
+        collector = Iter_collect()
+        cg = minres(Lhs,rhs,x0,tol=1.0e-16,callback=collector)
         xy = numpy_to_cvxopt_matrix(cg[0])
-        self.cgiter = cg[1]
+        self.cgiter = collector.iter
 
         nI = len(self.I)
         ny = self.QP.numeq
@@ -487,6 +475,15 @@ def pick_negative(x):
         tups[1] = list(x.I[tups[1]])
     return tups    
 
+
+class Iter_collect(object):
+    'A auxilliary function object to collect number of iterations'
+    def __init__(self):
+        self.iter = 0
+
+    def __call__(self,xk):
+        frame = inspect.currentframe().f_back
+        self.iter = frame.f_locals['itn']
 
 def _test_pdas():
     'Test function of pdas'
