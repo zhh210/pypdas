@@ -3,11 +3,17 @@ Utility classes and functions that are extensively used in PDAS.
 '''
 import re
 import cvxopt
+import inspect, ctypes
 from cvxopt import matrix, spmatrix
 from randutil import sprandsym, sp_rand
 from copy import copy
 from numpy import inf
+from scipy.sparse.linalg import minres
+from convert import numpy_to_cvxopt_matrix, cvxopt_to_numpy_matrix
 
+locals_to_fast = ctypes.pythonapi.PyFrame_LocalsToFast
+locals_to_fast.restype = None
+locals_to_fast.argtypes = [ctypes.py_object, ctypes.c_int]
 
 
 class OptOptions(object):
@@ -150,6 +156,76 @@ class TetheredLinsys(object):
         self.solution_dist_ub = viration
 
 
+class LinsysWrap(object):
+    'A wrapper of liear equation solver to terminate when exactness is obtained'
+    def __init__(self,PDAS,lin_solver = minres):
+        self.lin_solver = minres
+        self.PDAS = PDAS
+        self.Lhs, self.rhs, self.x0 = PDAS._get_lineq()
+        self.r0 = self.Lhs*self.x0 - self.rhs
+        self.PDAS.CG_r0 = self.r0
+        self.PDAS.CG_r = self.r0
+        self.PDAS.correctV = Violations()
+        self.err_lb = None
+        self.err_ub = None
+        self.inv_norm = 1e+2
+        self.iter = 0
+
+    def solve(self):
+        'Solve the equation until certain conditions are satisfied'
+        A = cvxopt_to_numpy_matrix(self.Lhs)
+        b = cvxopt_to_numpy_matrix(matrix(self.rhs))
+        x0 = cvxopt_to_numpy_matrix(self.x0)
+        self.lin_solver(A,b,x0,tol=1.0e-16,callback=self.callback)
+
+    def callback(self,xk = None):
+        'Callback function after each iteration of minres'
+
+        # Access current iteration from lin_solver
+        
+        xy = numpy_to_cvxopt_matrix(xk)
+
+        # Set x[I], y, and czl czl(if nonempty)
+        nI = len(self.PDAS.I)
+        ny = self.PDAS.QP.numeq
+        ncL = len(self.PDAS.cAL)
+        ncU = len(self.PDAS.cAU)
+        self.PDAS.x[self.PDAS.I] = xy[0:nI]
+        self.PDAS.y = xy[nI:nI + ny]
+        if self.PDAS.czl.size[0] > 0:
+            self.PDAS.czl[self.PDAS.cAL] = xy[nI+ny:nI+ny+ncL]
+            self.PDAS.czu[self.PDAS.cAU] = xy[nI+ny+ncL:]
+
+        # Set residuals, and inv_norm estimate
+        self.PDAS.CG_r = self.Lhs*xy - self.rhs
+        self.inv_norm = max(sum(xy**2)/sum((self.rhs + self.PDAS.CG_r)**2),self.inv_norm)
+
+        # Obtain bounds from an estimate of norm(invHii): B
+        if self.PDAS.inv_norm is None:
+            self.PDAS.inv_norm = 1.1*self.inv_norm
+        else:
+            self.PDAS.inv_norm = max(self.PDAS.inv_norm, 1.1*self.inv_norm)
+
+        B = self.PDAS.inv_norm
+        viration = sum(self.PDAS.CG_r**2)*B*matrix(1.0,self.r0.size)
+
+        self.err_lb = - viration
+        self.err_ub = viration
+
+        # Update other variables
+        self.PDAS._back_substitute()
+        self.PDAS.identify_violation_inexact(self.err_lb,self.err_ub)
+
+        # If condition satisfied, terminate the linear equation solve
+        if self.PDAS.ask('conditioner') is True:
+            frame = inspect.currentframe().f_back
+            self.iter = frame.f_locals['itn']
+            set_in_frame(inspect.currentframe().f_back,'istop',9)
+            # ctypes.pythonapi.PyCell_Set(id(istop),9)
+
+def set_in_frame(frame, name, value):
+    frame.f_locals[name] = value
+    locals_to_fast(frame, 1)
 
 def union(x,y):
     'Set operation: return elements either in x or y in ascending order'
@@ -178,6 +254,7 @@ def estimate_range(A,xl,xu):
     Apos = copy(A)
     Aneg = copy(A)
 
+    # For sparse matrices
     Apos.V = cvxopt.max(Apos.V,0)
     Aneg.V = cvxopt.min(Aneg.V,0)
 
