@@ -20,9 +20,9 @@ class printer(observer):
         p = self.solver
         v = self.solver.violations
         if p.iter == 0:
-            num = 78
+            num = 80
             print '='*num
-            print 'Iter     Obj         KKT        |AL|  |AU|  |I|   |V|   |cV|   invnorm  CG-IT'
+            print 'Iter     Obj           KKT        |AL|  |AU|  |I|   |V|   |cV|   invnorm  CG-IT'
             print '='*num
         print '{iter:>4d}  {obj:^12.2e}  {kkt:^12.2e}  {AL:>4d}  {AU:>4d}  {I:>4d}  {V:>4d}  {cV:>4d}   {inv:>6.2e}  {CGiter:>4d}'.format(iter=p.iter,obj=p._compute_obj(), kkt=p.kkt,AL=len(p.AL),AU=len(p.AU),I=len(p.I),V=p.lenV,cV=p.correctV.lenV,inv=p.inv_norm,CGiter=p.cgiter)
 
@@ -111,8 +111,24 @@ class conditioner(object):
 
 class monitor(observer):
     '''Monitor class'''
-    pass
+    def __init__(self,PDAS,recent=6):
+        self.solver = PDAS
+        self.n = recent
+        self.kktlist = [None]*recent
+
+    def __call__(self,what = {}):
+        # Update the kktlist
+        pos = self.solver.iter%self.n
+        self.kktlist[pos] = self.solver.kkt
+        if not None in self.kktlist:
+            # Decide if ref-kkt decreases strictly 
+            cur = max([i%self.n for i in range(pos,pos-self.n+1,-1)])
+            pre = max([i%self.n for i in range(pos-1,pos-self.n,-1)])
+            if cur > 0.9*pre:
+                self.solver.inv_norm *= 1.2
+
 
 class collector(observer):
     '''Collector class'''
     pass
+
