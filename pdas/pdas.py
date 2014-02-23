@@ -162,7 +162,7 @@ class PDAS(object):
         self.unregister('printer',p)
         print '-'*78
         print 'Problem Status     :', self.state
-        print 'Total CG-iterations:', self.TotalCG
+        print 'Total Krylov-iterations:', self.TotalCG
         print '-'*78+'\n\n'
 
     def inexact_solve(self):
@@ -207,7 +207,7 @@ class PDAS(object):
         self.unregister('conditioner',c)
         print '-'*78
         print 'Problem Status     :', self.state
-        print 'Total CG-iterations:', self.TotalCG
+        print 'Total Krylov-iterations:', self.TotalCG
         print '-'*78+'\n\n'
 
 

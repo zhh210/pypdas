@@ -215,11 +215,12 @@ class LinsysWrap(object):
         # Update other variables
         self.PDAS._back_substitute()
         self.PDAS.identify_violation_inexact(self.err_lb,self.err_ub)
+        frame = inspect.currentframe().f_back
+        self.iter = frame.f_locals['itn']
+
 
         # If condition satisfied, terminate the linear equation solve
         if self.PDAS.ask('conditioner') is True:
-            frame = inspect.currentframe().f_back
-            self.iter = frame.f_locals['itn']
             set_in_frame(inspect.currentframe().f_back,'istop',9)
             # ctypes.pythonapi.PyCell_Set(id(istop),9)
 
