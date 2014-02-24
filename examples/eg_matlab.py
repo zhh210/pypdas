@@ -22,19 +22,19 @@ def test_sparse():
     x0   = data['x0'] 
 
     # Solve a general QP
-    print('Solving a random QP with exact ssm solve:\n')
+    print('Sparse H: Solving a random QP with exact ssm solve:\n')
     pdas(H,c,Aeq,beq,A,bl,bu,l,u,x0)
 
     # Solve a bound constrained QP
-    print('Solving a random bound-constrained QP with exact ssm solve:\n')
+    print('Sparse H: Solving a random bound-constrained QP with exact ssm solve:\n')
     pdas(H=H,c=c,l=l,u=u,x0=x0)
 
     # Solve a general QP
-    print('Solving a random QP with inexact ssm solve:\n')
+    print('Sparse H: Solving a random QP with inexact ssm solve:\n')
     ipdas(H,c,Aeq,beq,A,bl,bu,l,u,x0)
 
     # Solve a bound constrained QP
-    print('Solving a random QP with inexact ssm solve:\n')
+    print('Sparse H: Solving a random bound-constrained QP with inexact ssm solve:\n')
     ipdas(H=H,c=c,l=l,u=u,x0=x0)
 
 def test_dense():
@@ -55,19 +55,19 @@ def test_dense():
     x0   = data['x0'] 
 
     # Solve a general QP
-    print('Solving a random QP with exact ssm solve:\n')
+    print('Dense H: Solving a random QP with exact ssm solve:\n')
     pdas(H,c,Aeq,beq,A,bl,bu,l,u,x0)
 
     # Solve a bound constrained QP
-    print('Solving a random bound-constrained QP with exact ssm solve:\n')
+    print('Dense H: Solving a random bound-constrained QP with exact ssm solve:\n')
     pdas(H=H,c=c,l=l,u=u,x0=x0)
 
     # Solve a general QP
-    print('Solving a random QP with inexact ssm solve:\n')
+    print('Dense H: Solving a random QP with inexact ssm solve:\n')
     ipdas(H,c,Aeq,beq,A,bl,bu,l,u,x0)
 
     # Solve a bound constrained QP
-    print('Solving a random QP with inexact ssm solve:\n')
+    print('Dense H: Solving a random bound-constrained QP with inexact ssm solve:\n')
     ipdas(H=H,c=c,l=l,u=u,x0=x0)
 
 
