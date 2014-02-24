@@ -32,7 +32,7 @@ class PDAS(object):
         m = QP.numeq
         mi = QP.numineq
 
-        self.x = QP.x0
+        self.x = copy(QP.x0)
 
         self.czl = spmatrix([],[],[],(mi,1)) 
         self.czu = spmatrix([],[],[],(mi,1)) 

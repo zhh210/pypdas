@@ -7,6 +7,7 @@ from utility import OptOptions
 from prob import randQP, QP
 from randutil import sp_rand, sprandsym
 from numpy import inf
+from cvxopt import matrix
 
 def _generateQP(H,c,Aeq,beq,A,bl,bu,l,u,x0):
     'Auxilliary function for generating QP blass'
