@@ -221,6 +221,7 @@ class PDAS(object):
         print 'Avg norm(r,1)/norm(r0,1): {0:<.2e}'.format(col.res_relative/col.num)
         print 'Avg norm(r,1)           : {0:<.2e}'.format(col.res_abs/col.num)
         print 'Time Elapsed            : {0:<.2e}'.format(col.time_elapse)
+        print 'Total Krylov4estimation :', k.cgiter
         print '-'*80+'\n\n'
         self.unregister('conditioner',c)
         self.unregister('collector',col)

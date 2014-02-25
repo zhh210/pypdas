@@ -4,6 +4,9 @@ Classes controling the behavior of different observers (printer, condioner, moni
 from numpy.linalg import norm
 from numpy import inf
 from time import clock
+from cvxopt import matrix
+from scipy.sparse.linalg import minres
+from utility import CG
 
 class observer(object):
     '''Base class for observer '''
@@ -111,16 +114,37 @@ class conditioner(object):
         val = self.solver.iter != 0 and len_c == 0 and len_e == 0 and self.solver.kkt > self.solver.option['OptTol']
         return val
 
-        
+def estimate_inv_norm(Lhs,rhs = None,x0 = None):
+    'Auxilliary function to estimate upper bound of inv norm of Lhs'
+    if rhs is None:
+        rhs = matrix(1,(Lhs.size[0],1))
+    cg = CG(Lhs,rhs,x0)
+    Ax = Lhs*cg.x
+    v = [i for i in Ax if i < 0]
+    while len(v) > 0:# or min(Ax)<1e-16:
+        cg.iterate()
+        Ax = Lhs*cg.x
+        #print matrix([cg.x.T, Ax.T])
+        #print min(Ax)
+        v = [i for i in Ax if i < 0]
+    return (norm(cg.x,inf)/min(Ax),cg.iter)
 
 class monitor(observer):
     '''Monitor class'''
-    def __init__(self,PDAS,recent=6):
+    def __init__(self,PDAS,recent=6, est_fun = None):
         self.solver = PDAS
-        self.n = recent
-        self.kktlist = [None]*recent
+        self.est_fun = est_fun
+        self.cgiter = 0
+        if est_fun is None:
+            self.n = recent
+            self.kktlist = [None]*recent
 
     def __call__(self,what = {}):
+        if not self.est_fun is None:
+            Lhs,rhs,x0 = self.solver._get_lineq()
+            self.solver.inv_norm, cgiter = self.est_fun(Lhs)
+            self.cgiter += cgiter
+            return
         # Update the kktlist
         pos = self.solver.iter%self.n
         self.kktlist[pos] = self.solver.kkt
@@ -151,5 +175,4 @@ class collector(observer):
         self.res_relative += sum(abs(self.solver.CG_r))/sum(abs(self.solver.CG_r0))
         self.res_abs += sum(abs(self.solver.CG_r))
         self.num += 1
-
 
