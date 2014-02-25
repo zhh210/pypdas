@@ -63,7 +63,7 @@ class PDAS(object):
         self.TotalCG = 0
         self.CG_r = matrix([10,100,1000])
         self.correctV = Violations()
-        self.inv_norm = 100
+        self.inv_norm = 0.2*n**2
 
     @property
     def cgiter(self):
@@ -177,7 +177,7 @@ class PDAS(object):
         # Attach necessary observers, does not work!!
         self._ObserverList['printer'] = []
         p = obs.printer(self)
-        k = obs.monitor(self)
+        k = obs.monitor(self,est_fun = self.option['fun_estinv'])
         self.register('printer',p)
         self.register('monitor',k)
 

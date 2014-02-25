@@ -31,6 +31,7 @@ class OptOptions(object):
         'OptTol': 1.0e-10,
         'ResTol': 1.0e-8,
         'MaxItr': 1000,
+        'fun_estinv': None,
         }
 
     def __init__(self, **kwargs):

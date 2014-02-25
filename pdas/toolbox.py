@@ -47,7 +47,7 @@ def _default(Aeq,beq,A,bl,bu,l,u,x0,n):
     return Aeq,beq,A,bl,bu,l,u,x0
 
 
-def pdas(H=None, c=None, Aeq=None, beq=None, A=None, bl=None, bu=None, l = None, u = None, x0=None, option = OptOptions()):
+def pdas(H=None, c=None, Aeq=None, beq=None, A=None, bl=None, bu=None, l = None, u = None, x0=None, **kwargs):
     '''
     PDAS algorithm with exact ssm solve.
     Example:
@@ -81,10 +81,10 @@ def pdas(H=None, c=None, Aeq=None, beq=None, A=None, bl=None, bu=None, l = None,
     #import pdb
     #pdb.set_trace()
     #print qp.H.size,qp.A.size,qp.Aeq.size,qp.bl.size,qp.bu.size
-    pdas = PDAS(qp)
+    pdas = PDAS(qp,**kwargs)
     pdas.exact_solve()
 
-def ipdas(H=None, c=None, Aeq=None, beq=None, A=None, bl=None, bu=None, l = None, u = None, x0=None, option = OptOptions()):
+def ipdas(H=None, c=None, Aeq=None, beq=None, A=None, bl=None, bu=None, l = None, u = None, x0=None, **kwargs):
     '''
     PDAS algorithm with inexact ssm solve
     Example:
@@ -115,7 +115,7 @@ def ipdas(H=None, c=None, Aeq=None, beq=None, A=None, bl=None, bu=None, l = None
 
     # Create QP blass and solve with inexact PDAS
     qp = _generateQP(H,c,Aeq,beq,A,bl,bu,l,u,x0)
-    pdas = PDAS(qp)
+    pdas = PDAS(qp,**kwargs)
     pdas.inexact_solve()
 
 def test_pdas():
