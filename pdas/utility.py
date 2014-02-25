@@ -10,6 +10,7 @@ from copy import copy
 from numpy import inf
 from scipy.sparse.linalg import minres
 from convert import numpy_to_cvxopt_matrix, cvxopt_to_numpy_matrix
+from math import sqrt
 
 locals_to_fast = ctypes.pythonapi.PyFrame_LocalsToFast
 locals_to_fast.restype = None
@@ -163,8 +164,8 @@ class LinsysWrap(object):
         self.PDAS = PDAS
         self.Lhs, self.rhs, self.x0 = PDAS._get_lineq()
         self.r0 = self.Lhs*self.x0 - self.rhs
-        self.PDAS.CG_r0 = self.r0
-        self.PDAS.CG_r = self.r0
+        self.PDAS.CG_r0 = copy(self.r0)
+        self.PDAS.CG_r = copy(self.r0)
         self.PDAS.correctV = Violations()
         self.err_lb = None
         self.err_ub = None
@@ -198,7 +199,7 @@ class LinsysWrap(object):
 
         # Set residuals, and inv_norm estimate
         self.PDAS.CG_r = self.Lhs*xy - self.rhs
-        self.inv_norm = max(sum(xy**2)/sum((self.rhs + self.PDAS.CG_r)**2),self.inv_norm)
+        self.inv_norm = max(sqrt(sum(xy**2))/sqrt(sum((self.rhs + self.PDAS.CG_r)**2)),self.inv_norm)
 
         # Obtain bounds from an estimate of norm(invHii): B
         if self.PDAS.inv_norm is None:
@@ -207,7 +208,7 @@ class LinsysWrap(object):
             self.PDAS.inv_norm = max(self.PDAS.inv_norm, 1.1*self.inv_norm)
 
         B = self.PDAS.inv_norm
-        viration = sum(self.PDAS.CG_r**2)*B*matrix(1.0,self.r0.size)
+        viration = sqrt(sum(self.PDAS.CG_r**2))*B*matrix(1.0,self.r0.size)
 
         self.err_lb = - viration
         self.err_ub = viration

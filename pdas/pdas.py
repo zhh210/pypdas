@@ -137,6 +137,8 @@ class PDAS(object):
         # Attach necessary observers
         p = obs.printer(self)
         self.register('printer',p)
+        col = obs.collector(self)
+        self.register('collector',col)
 
         # Main loop
         while self.iter < self.option['MaxItr']:
@@ -147,7 +149,7 @@ class PDAS(object):
             # Identify which indices are violated
             self.violations = self.identify_violation()
 
-            self.notify(['printer'])
+            self.notify(['printer','collector'])
 
             # Optimality check
             if self.kkt < self.option['OptTol']:
@@ -159,11 +161,16 @@ class PDAS(object):
             self.iter += 1
 
         # When finished running
+        print '-'*80
+        print 'Problem Status          :', self.state
+        print 'Total Iterations        :', self.iter
+        print 'Total Krylov-iterations :', self.TotalCG
+        print 'Avg norm(r,1)/norm(r0,1): {0:<.2e}'.format(col.res_relative/col.num)
+        print 'Avg norm(r,1)           : {0:<.2e}'.format(col.res_abs/col.num)
+        print 'Time Elapsed            : {0:<.2e}'.format(col.time_elapse)
+        print '-'*80+'\n\n'
+
         self.unregister('printer',p)
-        print '-'*78
-        print 'Problem Status     :', self.state
-        print 'Total Krylov-iterations:', self.TotalCG
-        print '-'*78+'\n\n'
 
     def inexact_solve(self):
         'Solve the attached problem by exact solver'
@@ -176,6 +183,8 @@ class PDAS(object):
 
         c = obs.conditioner(self)
         self.register('conditioner',c)
+        col = obs.collector(self)
+        self.register('collector',col)
         # Initialize necessary structure
 
         # Main loop
@@ -191,7 +200,7 @@ class PDAS(object):
 
             # Notify observers about this iteration
             self.cgiter = L.iter
-            self.notify(['printer','monitor'])
+            self.notify(['printer','monitor','collector'])
             # Optimality check
             if self.kkt < self.option['OptTol']:
                 self.state = 'Optimal'
@@ -204,12 +213,17 @@ class PDAS(object):
         # When finished running
 
         # Unregister the conditioner, otherwise may affact next call
-        self.unregister('conditioner',c)
-        print '-'*78
-        print 'Problem Status     :', self.state
-        print 'Total Krylov-iterations:', self.TotalCG
-        print '-'*78+'\n\n'
 
+        print '-'*80
+        print 'Problem Status          :', self.state
+        print 'Total Iterations        :', self.iter
+        print 'Total Krylov-iterations :', self.TotalCG
+        print 'Avg norm(r,1)/norm(r0,1): {0:<.2e}'.format(col.res_relative/col.num)
+        print 'Avg norm(r,1)           : {0:<.2e}'.format(col.res_abs/col.num)
+        print 'Time Elapsed            : {0:<.2e}'.format(col.time_elapse)
+        print '-'*80+'\n\n'
+        self.unregister('conditioner',c)
+        self.unregister('collector',col)
 
     def identify_violation(self, by = None):
         'Find violated sets'
@@ -331,16 +345,19 @@ class PDAS(object):
         # Set x[I], y, czl, czu by solving linear equation
         # xy = cholmod.splinsolve(Lhs,rhs)
 
+        self.CG_r0 = Lhs*x0 - rhs
+
         # Convert to numpy/scipy matrix
-        Lhs = cvxopt_to_numpy_matrix(Lhs)
-        rhs = cvxopt_to_numpy_matrix(matrix(rhs))
-        x0 = cvxopt_to_numpy_matrix(x0)
+        npLhs = cvxopt_to_numpy_matrix(Lhs)
+        nprhs = cvxopt_to_numpy_matrix(matrix(rhs))
+        npx0 = cvxopt_to_numpy_matrix(x0)
 
         # Solve the linear system
         collector = Iter_collect()
-        cg = minres(Lhs,rhs,x0,tol=1.0e-16,callback=collector)
+        cg = minres(npLhs,nprhs,npx0,tol=1.0e-16,callback=collector)
         xy = numpy_to_cvxopt_matrix(cg[0])
         self.cgiter = collector.iter
+        self.CG_r = Lhs*numpy_to_cvxopt_matrix(collector.x) - rhs
 
         nI = len(self.I)
         ny = self.QP.numeq
@@ -480,10 +497,12 @@ class Iter_collect(object):
     'A auxilliary function object to collect number of iterations'
     def __init__(self):
         self.iter = 0
+        self.x = None
 
     def __call__(self,xk):
         frame = inspect.currentframe().f_back
         self.iter = frame.f_locals['itn']
+        self.x = xk
 
 def _test_pdas():
     'Test function of pdas'

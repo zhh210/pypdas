@@ -1,6 +1,10 @@
 '''
 Classes controling the behavior of different observers (printer, condioner, monitor, etc.).
 '''
+from numpy.linalg import norm
+from numpy import inf
+from time import clock
+
 class observer(object):
     '''Base class for observer '''
     def __init__(self,PDAS):
@@ -63,11 +67,11 @@ class conditioner(object):
         # print 'from observer', max(abs(self.solver.CG_r))
         # print 'from observer', self.solver.state
         # print 'from observer', self.solver.iter
-        return max(abs(self.solver.CG_r)) < self.option['CG_res_absolute']
+        return norm(self.solver.CG_r,1) < self.option['CG_res_absolute']
     
     def is_CG_res_relative(self):
         'Linear solver has satisfied relative tolerance'
-        return max(abs(self.solver.CG_r))/max(abs(self.solver.CG_r0)) < self.option['CG_res_relative']
+        return norm(self.solver.CG_r,1)/norm(self.solver.CG_r0,1) < self.option['CG_res_relative']
 
     def is_identified_estimate(self):
         '|identified V|/|estimated V| sufficiently large'
@@ -130,5 +134,22 @@ class monitor(observer):
 
 class collector(observer):
     '''Collector class'''
-    pass
+    def __init__(self,PDAS):
+        self.solver = PDAS
+        self.res_relative = 0
+        self.res_abs = 0
+        self.num = 0
+        self.t = clock()
+
+    @property
+    def time_elapse(self):
+        'Compute the time from initialization until now'
+        return clock() - self.t
+
+    def __call__(self,what={}):
+        'Collect info of res_raio'
+        self.res_relative += sum(abs(self.solver.CG_r))/sum(abs(self.solver.CG_r0))
+        self.res_abs += sum(abs(self.solver.CG_r))
+        self.num += 1
+
 
