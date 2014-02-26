@@ -63,7 +63,7 @@ class PDAS(object):
         self.TotalCG = 0
         self.CG_r = matrix([10,100,1000])
         self.correctV = Violations()
-        self.inv_norm = 0.2*n**2
+        self.inv_norm = 0.2*(n+m+mi*0.5)**2
 
     @property
     def cgiter(self):
