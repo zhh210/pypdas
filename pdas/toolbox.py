@@ -3,7 +3,7 @@ Interface for PDAS toolbox functions.
 '''
 
 from pdas import PDAS
-from utility import OptOptions
+from utility import optimset
 from prob import randQP, QP
 from randutil import sp_rand, sprandsym
 from numpy import inf

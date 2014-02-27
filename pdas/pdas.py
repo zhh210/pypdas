@@ -54,8 +54,9 @@ class PDAS(object):
 
         self.violations = Violations()
 
+
+        self.option = ut.optimset(**kwargs)
         self._guess()
-        self.option = ut.OptOptions(**kwargs)
         self._ObserverList = dict(PDAS.observerlist)
 
         self.state = 'Initial'
@@ -355,7 +356,7 @@ class PDAS(object):
 
         # Solve the linear system
         collector = Iter_collect()
-        cg = minres(npLhs,nprhs,npx0,tol=1.0e-16,callback=collector)
+        cg = minres(npLhs,nprhs,npx0,tol=self.option['ResTol'],callback=collector)
         xy = numpy_to_cvxopt_matrix(cg[0])
         self.cgiter = collector.iter
         self.CG_r = Lhs*numpy_to_cvxopt_matrix(collector.x) - rhs
@@ -407,7 +408,7 @@ class PDAS(object):
         'Guess the initial active-set from x0'
         if not x0:
             x0 = self.QP.x0
-        eps = 1.0e-16
+        eps = self.option['eps']
         self.AL = pick_negative(x0 - self.QP.l - eps)[1]
         self.AU = pick_negative(self.QP.u - x0 - eps)[1]
 

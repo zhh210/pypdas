@@ -17,25 +17,27 @@ locals_to_fast.restype = None
 locals_to_fast.argtypes = [ctypes.py_object, ctypes.c_int]
 
 
-class OptOptions(object):
+class optimset(object):
     '''
     Info : Class for holding default parameters and setting values.
     Msg  : Default parameters:
            - 'Solver': 'CG',
-           - 'OptTol': 1.0e-10,
-           - 'ResTol': 1.0e-8,
+           - 'OptTol': 1.0e-7,
+           - 'ResTol': 1.0e-10,
            - 'MaxItr': 1000,
+           - 'eps'   : 1.0e-16
     '''
     default_options = {
         'Solver': 'CG',
-        'OptTol': 1.0e-10,
-        'ResTol': 1.0e-8,
+        'OptTol': 1.0e-7,
+        'ResTol': 1.0e-10,
         'MaxItr': 1000,
         'fun_estinv': None,
+        'eps': 1.0e-16,
         }
 
     def __init__(self, **kwargs):
-        self.options = dict(OptOptions.default_options)
+        self.options = dict(optimset.default_options)
         self.options.update(kwargs)
 
     def __getitem__(self,key):
@@ -286,15 +288,15 @@ def estimate_range(A,xl,xu):
 
 # Functions for internal test
 
-def _test_OptOptions():
-    'Test function of OptOptions'
-    print 'Testing OptOptions:'
+def _test_optimset():
+    'Test function of optimset'
+    print 'Testing optimset:'
     print 'Default options:'
-    option = OptOptions()
+    option = optimset()
     for key,item in option.options.iteritems():
         print key,':', item
     print 'Set options: Solver=pdas, NewOpt=1'
-    option = OptOptions(Solver='pdas',NewOpt=1)
+    option = optimset(Solver='pdas',NewOpt=1)
     for key in option.options.keys():
         print key,':', option[key]
     print '-'*50
@@ -317,6 +319,6 @@ def _test_range():
     print bl, bu
     
 if __name__ == '__main__':
-    _test_OptOptions()
+    _test_optimset()
     _test_CG()
     _test_range()
