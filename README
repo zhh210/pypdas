@@ -7,6 +7,9 @@ Key features of this package is its:
 - Customizable subproblem (linear equation system) iterative solve.
 
 --Example:
+    from pdas.toolbox import pdas,ipdas
+    from pdas.randutil import sprandsym, sp_rand
+
     'Example to call pdas, with exact ssm solve.'
     n = 100  # number of variables
     m = 1    # number of equality
