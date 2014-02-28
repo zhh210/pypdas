@@ -1,152 +1,59 @@
 --Introduction:
 pypdas is an implementation of the primal-dual active-set (PDAS) method, with inexact subproblem solves and extensive enhancement, for convex quadratic optimization problems (QPs) of the form:
-   min {1/2x'Hx + c'x | Aeq x = beq, cl <= Ax <= cu, l <= x <= u}.
+   min {1/2x'Hx + c'x | Aeq x = beq, bl <= Ax <= bu, l <= x <= u}.
 Key features of this package is its:
 - Unified interface for both dense and sparse problems; 
 - Flexible control on the speed of identification of the optimal active-set;
 - Customizable subproblem (linear equation system) iterative solve.
 
 --Example:
--Run discretized optimal control problem by executing pydas/examples/eg_control.py, the results should be somewhat like (former: exact subproblem solve, later: inexact subproblem solve):
+    'Example to call pdas, with exact ssm solve.'
+    n = 100  # number of variables
+    m = 1    # number of equality
+    mi = 1   # number of inequality
+    # Generate some random data
+    H    = sprandsym(n)
+    c    = sp_rand(n,1,1)
+    A    = sp_rand(mi,n,1)
+    bl   = sp_rand(mi,1,1)
+    bu   = bl + 1
+    Aeq  = sp_rand(m,n,0.8)
+    beq  = sp_rand(m,1,1)
+    l    = sp_rand(n,1,1)
+    u    = l + 1
+    x0   = sp_rand(n,1,0.8)
 
-Solving optimal control problem by exact subproblem solve.
-==============================================================================
-Iter     Obj         KKT        |AL|  |AU|  |I|   |V|   |cV|   invnorm  CG-IT
-==============================================================================
-0   -3.36e+01      4.65e+02       0    83   117    49     0   1.00e+02   883
-1   -2.55e+01      2.46e+02       0    48   152    12     0   1.00e+02  2089
-2   -2.21e+01      1.90e+02       0    60   140     9     0   1.00e+02  1247
-3   -1.95e+01      1.61e+02       0    69   131     8     0   1.00e+02  1358
-4   -1.78e+01      1.43e+02       0    77   123     6     0   1.00e+02  1016
-5   -1.72e+01      8.25e+01       0    83   117     3     0   1.00e+02   993
-6   -1.70e+01      1.77e-08       0    86   114     0     0   1.00e+02   846
-7   -1.70e+01      9.26e-11       0    86   114     0     0   1.00e+02   135
-------------------------------------------------------------------------------
-Problem Status     : Optimal
-Total CG-iterations: 8567
-------------------------------------------------------------------------------
+    # Solve a general QP
+    print('Solving a random QP with exact ssm solve:\n')
+    pdas(H,c,Aeq,beq,A,bl,bu,l,u,x0)
 
+    # Solve a bound constrained QP
+    print('Solving a random bound-constrained QP with exact ssm solve:\n')
+    pdas(H=H,c=c,l=l,u=u,x0=x0)
 
-Solving optimal control problem by inexact subproblem solve.
-==============================================================================
-Iter     Obj         KKT        |AL|  |AU|  |I|   |V|   |cV|   invnorm  CG-IT
-==============================================================================
-0   -3.36e+01      4.65e+02       0    83   117    44    40   8.43e+03   240
-1   -2.22e+01      1.87e+02       0    55   145    14    12   8.43e+03   218
-2   -1.72e+01      8.50e+01       0    67   133    13    13   8.43e+03   125
-3   -1.70e+01      1.19e+02       0    80   120     4     4   8.43e+03   185
-4   -1.70e+01      4.26e+01       0    84   116     5     5   8.43e+03   205
-5   -1.70e+01      9.27e-04       0    87   113     1     1   8.43e+03   127
-6   -1.70e+01      1.10e-13       0    86   114     0     0   8.43e+03   836
-------------------------------------------------------------------------------
-Problem Status     : Optimal
-Total CG-iterations: 1936
-------------------------------------------------------------------------------
+    'Example to call pdas, with inexact ssm solve.'
+    n = 100  # number of variables
+    m = 1    # number of equality
+    mi = 1   # number of inequality
+    # Generate some random data
+    H    = sprandsym(n)
+    c    = sp_rand(n,1,1)
+    A    = sp_rand(mi,n,1)
+    bl   = sp_rand(mi,1,1)
+    bu   = bl + 1
+    Aeq  = sp_rand(m,n,0.8)
+    beq  = sp_rand(m,1,1)
+    l    = sp_rand(n,1,1)
+    u    = l + 1
+    x0   = sp_rand(n,1,0.8)
 
--Run discretized optimal boundary control problem by executing pydas/examples/eg_control2.py, the results should be somewhat like (former: exact subproblem solve, later: inexact subproblem solve):
+    # Solve a general QP
+    print('Solving a random QP with inexact ssm solve:\n')
+    ipdas(H,c,Aeq,beq,A,bl,bu,l,u,x0)
 
-Solving optimal boundary control problem by exact subproblem solve.
-==============================================================================
-Iter     Obj         KKT        |AL|  |AU|  |I|   |V|   |cV|   invnorm  CG-IT
-==============================================================================
-0   -4.14e+01      1.17e+01       0    31   149    23     0   1.00e+02   600
-1   -3.14e+01      9.35e+00       0    20   160     8     0   1.00e+02   817
-2   -1.65e+01      6.67e+00       0    28   152     6     0   1.00e+02   904
-3   -7.97e+00      4.89e+00       0    32   148     2     0   1.00e+02   750
-4   -4.83e+00      4.97e+00       0    34   146     3     0   1.00e+02   847
-5   -1.94e+00      1.25e+00       0    37   143     1     0   1.00e+02   667
-6   -1.82e+00      3.21e-10       0    38   142     0     0   1.00e+02   536
-7   -1.82e+00      8.58e-11       0    38   142     0     0   1.00e+02    23
-------------------------------------------------------------------------------
-Problem Status     : Optimal
-Total CG-iterations: 5144
-------------------------------------------------------------------------------
-
-
-Solving optimal boundary control problem by inexact subproblem solve.
-==============================================================================
-Iter     Obj         KKT        |AL|  |AU|  |I|   |V|   |cV|   invnorm  CG-IT
-==============================================================================
-0   -4.16e+01      1.20e+01       0    31   149    23    19   1.00e+02   256
-1   -2.54e+01      7.84e+00       0    22   158     8     7   4.03e+02   454
-2   -1.42e+01      7.01e+00       0    29   151     4     4   4.03e+02   427
-3   -5.75e+00      4.12e+00       0    33   147     2     2   4.70e+02   369
-4   -2.56e+00      2.59e+00       0    35   145     2     2   6.70e+02   404
-5   -2.14e+00      1.12e+00       0    37   143     1     1   8.79e+02   322
-6   -1.82e+00      9.44e-12       0    38   142     0     0   8.79e+02   517
-------------------------------------------------------------------------------
-Problem Status     : Optimal
-Total CG-iterations: 2749
-------------------------------------------------------------------------------
-
-
--Run a randomly generated convex QP by executing pypdas/examples/eg_rand.py, the results should be somewhat like (block1: exact subproblem solve on bound-constrained QP, block2: inexact subproblem solve on bound-constrained QP, block3: exact subproblem solve on general QP, block4: inexact subproblem solve on general QP):
-
-Solving random bound-constrained QP with exact subproblem solve:
-==============================================================================
-Iter     Obj         KKT        |AL|  |AU|  |I|   |V|   |cV|   invnorm  CG-IT
-==============================================================================
-0    2.77e+02      5.37e+01      43    18    39    49     0   1.00e+02    46
-1    1.81e+02      1.32e+01      39    19    42    24     0   1.00e+02    45
-2    1.84e+02      1.60e+00      47    19    34     7     0   1.00e+02    33
-3    1.84e+02      1.77e-01      45    20    35     3     0   1.00e+02    30
-4    1.84e+02      1.13e-02      45    21    34     1     0   1.00e+02    29
-5    1.84e+02      6.81e-11      46    21    33     0     0   1.00e+02    26
-------------------------------------------------------------------------------
-Problem Status     : Optimal
-Total CG-iterations: 209
-------------------------------------------------------------------------------
-
-
-Solving random bound-constrained QP with inexact subproblem solve:
-==============================================================================
-Iter     Obj         KKT        |AL|  |AU|  |I|   |V|   |cV|   invnorm  CG-IT
-==============================================================================
-0    4.51e+02      3.72e+01      53    18    29    40    34   1.00e+02     5
-1    4.35e+02      6.37e+00      46    17    37    16    15   1.00e+02     9
-2    4.51e+02      4.09e-01      48    20    32     3     3   1.00e+02     5
-3    4.51e+02      1.04e+00      47    22    31     2     2   1.00e+02     1
-4    4.51e+02      1.21e-01      47    20    33     1     1   1.00e+02     5
-5    4.51e+02      2.04e-12      47    21    32     0     0   1.00e+02    35
-------------------------------------------------------------------------------
-Problem Status     : Optimal
-Total CG-iterations: 60
-------------------------------------------------------------------------------
-
-
-Solving random constrained QP with exact subproblem solve:
-==============================================================================
-Iter     Obj         KKT        |AL|  |AU|  |I|   |V|   |cV|   invnorm  CG-IT
-==============================================================================
-0    4.87e+02      2.85e+01      49    21    30    36     0   1.00e+02    36
-1    4.69e+02      7.82e+00      52    21    27    23     0   1.00e+02    33
-2    4.67e+02      8.13e-01      48    18    34     8     0   1.00e+02    51
-3    4.70e+02      2.41e-01      49    19    32     4     0   1.00e+02    41
-4    4.70e+02      2.20e-03      49    19    32     2     0   1.00e+02    42
-5    4.69e+02      7.64e-01      49    20    31     3     0   1.00e+02    37
-6    4.69e+02      1.36e-12      49    20    31     0     0   1.00e+02    42
-------------------------------------------------------------------------------
-Problem Status     : Optimal
-Total CG-iterations: 282
-------------------------------------------------------------------------------
-
-
-Solving random constrained QP with inexact subproblem solve:
-==============================================================================
-Iter     Obj         KKT        |AL|  |AU|  |I|   |V|   |cV|   invnorm  CG-IT
-==============================================================================
-0    4.71e+02      7.82e+01      44    27    29    49    44   1.00e+02     9
-1    2.49e+02      1.36e+01      42    17    41    33    30   1.00e+02    13
-2    2.63e+02      2.32e+00      51    13    36    11    11   1.00e+02    16
-3    2.73e+02      2.20e+00      51    14    35     3     3   1.00e+02     8
-4    2.72e+02      7.83e-01      50    14    36     2     2   1.00e+02     7
-5    2.72e+02      3.96e-01      52    14    34     1     1   1.00e+02     1
-6    2.72e+02      5.74e-01      53    14    33     3     3   1.00e+02     3
-7    2.72e+02      3.80e-11      51    14    35     1     1   1.00e+02    46
-------------------------------------------------------------------------------
-Problem Status     : Optimal
-Total CG-iterations: 103
-------------------------------------------------------------------------------
+    # Solve a bound constrained QP
+    print('Solving a random QP with inexact ssm solve:\n')
+    ipdas(H=H,c=c,l=l,u=u,x0=x0)
 
 --Caveat:
 Convergence is known for certain convex QPs arising in optimal control, most but not all convex QPs are solvable by pypdas.
@@ -154,6 +61,7 @@ Convergence is known for certain convex QPs arising in optimal control, most but
 --Prerequisites:
 cvxopt (http://cvxopt.org/)
 numpy (http://www.numpy.org/)
+scipy (http://www.scipy.org/)
 Set PYTHONPATH to include folder pdas/
 
 --Design:
