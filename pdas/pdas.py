@@ -64,7 +64,7 @@ class PDAS(object):
         self.TotalCG = 0
         self.CG_r = matrix([10,100,1000])
         self.correctV = Violations()
-        self.inv_norm = 0.2*(n+m+mi*0.5)**2
+        self.inv_norm = 10
 
     @property
     def cgiter(self):
@@ -172,6 +172,7 @@ class PDAS(object):
         print '-'*80+'\n\n'
 
         self.unregister('printer',p)
+        return (self.x,self.iter,self.TotalCG,col.res_relative/col.num,col.res_abs/col.num,col.time_elapse,self.state)
 
     def inexact_solve(self):
         'Solve the attached problem by exact solver'
@@ -201,7 +202,7 @@ class PDAS(object):
 
             # Notify observers about this iteration
             self.cgiter = L.iter
-            self.notify(['printer','monitor','collector'])
+            self.notify(['monitor','collector','printer'])
             # Optimality check
             if self.kkt < self.option['OptTol']:
                 self.state = 'Optimal'
@@ -224,8 +225,13 @@ class PDAS(object):
         print 'Time Elapsed            : {0:<.2e}'.format(col.time_elapse)
         print 'Total Krylov4estimation :', k.cgiter
         print '-'*80+'\n\n'
+
+        self.unregister('printer',p)
         self.unregister('conditioner',c)
-        self.unregister('collector',col)
+        return (self.x,self.iter,self.TotalCG,col.res_relative/col.num,col.res_abs/col.num,col.time_elapse,self.state,k.cgiter)
+
+#        self.unregister('conditioner',c)
+#        self.unregister('collector',col)
 
     def identify_violation(self, by = None):
         'Find violated sets'

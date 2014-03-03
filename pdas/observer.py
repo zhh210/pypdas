@@ -36,9 +36,10 @@ class printer(observer):
 class conditioner(object):
     'Conditioner class'
     option = {
-        'CG_res_absolute' : 1.0e-16,
+        'CG_res_absolute' : 1.0e-12,
         'CG_res_relative' : 1.0e-3,
-        'identified_estimated_ratio' : 0.8
+        'identified_estimated_ratio' : 0.8,
+        'CG_res_absolute_hard': 1.0e-2,
         }
     def __init__(self,iPDAS):
         'Attach conditioner to solver iPDAS'
@@ -49,7 +50,8 @@ class conditioner(object):
     def __call__(self,what = {}):
         'Return whether the condition is satisfied'
         satisfied = (
-            ((not self.enforce_exact())
+            (norm(self.solver.CG_r,inf) < self.option['CG_res_absolute_hard']
+             and (not self.enforce_exact())
              and self.at_least_one()
 #             and (self.is_CG_res_absolute() 
 #             and self.is_CG_res_relative()
@@ -70,6 +72,7 @@ class conditioner(object):
         # print 'from observer', max(abs(self.solver.CG_r))
         # print 'from observer', self.solver.state
         # print 'from observer', self.solver.iter
+
         return norm(self.solver.CG_r,1) < self.option['CG_res_absolute']
     
     def is_CG_res_relative(self):
@@ -127,7 +130,7 @@ def estimate_inv_norm(Lhs,rhs = None,x0 = None):
         #print matrix([cg.x.T, Ax.T])
         #print min(Ax)
         v = [i for i in Ax if i < 0]
-    return (norm(cg.x,inf)/min(Ax),cg.iter)
+    return (max(abs(cg.x))/min(Ax),cg.iter)
 
 class monitor(observer):
     '''Monitor class'''

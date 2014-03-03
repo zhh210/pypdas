@@ -30,7 +30,7 @@ class optimset(object):
     default_options = {
         'Solver': 'CG',
         'OptTol': 1.0e-7,
-        'ResTol': 1.0e-10,
+        'ResTol': 1.0e-16,
         'MaxItr': 1000,
         'fun_estinv': None,
         'eps': 1.0e-16,
@@ -205,12 +205,12 @@ class LinsysWrap(object):
         self.inv_norm = max(sqrt(sum(xy**2))/sqrt(sum((self.rhs + self.PDAS.CG_r)**2)),self.inv_norm)
 
         # Obtain bounds from an estimate of norm(invHii): B
-        if self.PDAS.inv_norm is None:
-            self.PDAS.inv_norm = 1.1*self.inv_norm
-        else:
+        if self.PDAS.inv_norm is None or len(self.PDAS._ObserverList['monitor']) < 1:
+            print 'dynamic'
             self.PDAS.inv_norm = max(self.PDAS.inv_norm, 1.1*self.inv_norm)
 
         B = self.PDAS.inv_norm
+
         viration = sqrt(sum(self.PDAS.CG_r**2))*B*matrix(1.0,self.r0.size)
 
         self.err_lb = - viration
