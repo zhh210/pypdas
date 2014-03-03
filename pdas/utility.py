@@ -11,6 +11,7 @@ from numpy import inf
 from scipy.sparse.linalg import minres
 from convert import numpy_to_cvxopt_matrix, cvxopt_to_numpy_matrix
 from math import sqrt
+from cvxopt.blas import nrm2
 
 locals_to_fast = ctypes.pythonapi.PyFrame_LocalsToFast
 locals_to_fast.restype = None
@@ -30,7 +31,7 @@ class optimset(object):
     default_options = {
         'Solver': 'CG',
         'OptTol': 1.0e-7,
-        'ResTol': 1.0e-16,
+        'ResTol': 1.0e-12,
         'MaxItr': 1000,
         'fun_estinv': None,
         'eps': 1.0e-16,
@@ -154,7 +155,7 @@ class TetheredLinsys(object):
         if B is None or self.PDAS.inv_norm is None:
             B = 1.1*self.linsol.inv_norm
 
-        viration = sum(self.linsol.r**2)*B*matrix(1.0,self.linsol.r0.size)
+        viration = nrm2(self.linsol.r)*B*matrix(1.0,self.linsol.r0.size)
 
         self.solution_dist_lb = - viration
         self.solution_dist_ub = viration
@@ -202,7 +203,7 @@ class LinsysWrap(object):
 
         # Set residuals, and inv_norm estimate
         self.PDAS.CG_r = self.Lhs*xy - self.rhs
-        self.inv_norm = max(sqrt(sum(xy**2))/sqrt(sum((self.rhs + self.PDAS.CG_r)**2)),self.inv_norm)
+        self.inv_norm = max(nrm2(xy)/nrm2(self.rhs + self.PDAS.CG_r),self.inv_norm)
 
         # Obtain bounds from an estimate of norm(invHii): B
         if self.PDAS.inv_norm is None or len(self.PDAS._ObserverList['monitor']) < 1:
@@ -211,7 +212,7 @@ class LinsysWrap(object):
 
         B = self.PDAS.inv_norm
 
-        viration = sqrt(sum(self.PDAS.CG_r**2))*B*matrix(1.0,self.r0.size)
+        viration = nrm2(self.PDAS.CG_r)*B*matrix(1.0,self.r0.size)
 
         self.err_lb = - viration
         self.err_ub = viration

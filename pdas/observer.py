@@ -5,6 +5,7 @@ from numpy.linalg import norm
 from numpy import inf
 from time import clock
 from cvxopt import matrix
+from cvxopt.blas import nrm2
 from scipy.sparse.linalg import minres
 from utility import CG
 
@@ -73,11 +74,11 @@ class conditioner(object):
         # print 'from observer', self.solver.state
         # print 'from observer', self.solver.iter
 
-        return norm(self.solver.CG_r,1) < self.option['CG_res_absolute']
+        return norm(self.solver.CG_r,inf) < self.option['CG_res_absolute']
     
     def is_CG_res_relative(self):
         'Linear solver has satisfied relative tolerance'
-        return norm(self.solver.CG_r,1)/norm(self.solver.CG_r0,1) < self.option['CG_res_relative']
+        return norm(self.solver.CG_r,inf)/norm(self.solver.CG_r0,inf) < self.option['CG_res_relative']
 
     def is_identified_estimate(self):
         '|identified V|/|estimated V| sufficiently large'
@@ -155,7 +156,7 @@ class monitor(observer):
             # Decide if ref-kkt decreases strictly 
             cur = max([i%self.n for i in range(pos,pos-self.n+1,-1)])
             pre = max([i%self.n for i in range(pos-1,pos-self.n,-1)])
-            if cur > 0.9*pre:
+            if cur >= pre:
                 self.solver.inv_norm *= 1.2
 
 
@@ -175,7 +176,7 @@ class collector(observer):
 
     def __call__(self,what={}):
         'Collect info of res_raio'
-        self.res_relative += sum(abs(self.solver.CG_r))/sum(abs(self.solver.CG_r0))
-        self.res_abs += sum(abs(self.solver.CG_r))
+        self.res_relative += nrm2(self.solver.CG_r)/nrm2(self.solver.CG_r0)
+        self.res_abs += nrm2(self.solver.CG_r)
         self.num += 1
 

@@ -12,7 +12,11 @@ from utility import setdiff, intersect, union, CG, estimate_range, TetheredLinsy
 from cvxopt import matrix, spmatrix, sparse, cholmod
 from copy import copy
 from convert import cvxopt_to_numpy_matrix, numpy_to_cvxopt_matrix
-import inspect
+import inspect, ctypes
+
+locals_to_fast = ctypes.pythonapi.PyFrame_LocalsToFast
+locals_to_fast.restype = None
+locals_to_fast.argtypes = [ctypes.py_object, ctypes.c_int]
 
 class PDAS(object):
 
@@ -166,12 +170,13 @@ class PDAS(object):
         print 'Problem Status          :', self.state
         print 'Total Iterations        :', self.iter
         print 'Total Krylov-iterations :', self.TotalCG
-        print 'Avg norm(r,1)/norm(r0,1): {0:<.2e}'.format(col.res_relative/col.num)
-        print 'Avg norm(r,1)           : {0:<.2e}'.format(col.res_abs/col.num)
+        print 'Avg norm(r)/norm(r0    ): {0:<.2e}'.format(col.res_relative/col.num)
+        print 'Avg norm(r)             : {0:<.2e}'.format(col.res_abs/col.num)
         print 'Time Elapsed            : {0:<.2e}'.format(col.time_elapse)
         print '-'*80+'\n\n'
 
         self.unregister('printer',p)
+        self.unregister('collector',col)
         return (self.x,self.iter,self.TotalCG,col.res_relative/col.num,col.res_abs/col.num,col.time_elapse,self.state)
 
     def inexact_solve(self):
@@ -220,8 +225,8 @@ class PDAS(object):
         print 'Problem Status          :', self.state
         print 'Total Iterations        :', self.iter
         print 'Total Krylov-iterations :', self.TotalCG
-        print 'Avg norm(r,1)/norm(r0,1): {0:<.2e}'.format(col.res_relative/col.num)
-        print 'Avg norm(r,1)           : {0:<.2e}'.format(col.res_abs/col.num)
+        print 'Avg norm(r)/norm(r0)    : {0:<.2e}'.format(col.res_relative/col.num)
+        print 'Avg norm(r)             : {0:<.2e}'.format(col.res_abs/col.num)
         print 'Time Elapsed            : {0:<.2e}'.format(col.time_elapse)
         print 'Total Krylov4estimation :', k.cgiter
         print '-'*80+'\n\n'
@@ -361,8 +366,9 @@ class PDAS(object):
         npx0 = cvxopt_to_numpy_matrix(x0)
 
         # Solve the linear system
+#        collector = Iter_collect(tol=self.option['ResTol'])
         collector = Iter_collect()
-        cg = minres(npLhs,nprhs,npx0,tol=self.option['ResTol'],callback=collector)
+        cg = minres(npLhs,nprhs,npx0,callback=collector)
         xy = numpy_to_cvxopt_matrix(cg[0])
         self.cgiter = collector.iter
         self.CG_r = Lhs*numpy_to_cvxopt_matrix(collector.x) - rhs
@@ -503,14 +509,29 @@ def pick_negative(x):
 
 class Iter_collect(object):
     'A auxilliary function object to collect number of iterations'
-    def __init__(self):
+    def __init__(self,tol = 1.0e-10):
         self.iter = 0
         self.x = None
+        self.tol = tol
 
     def __call__(self,xk):
         frame = inspect.currentframe().f_back
         self.iter = frame.f_locals['itn']
         self.x = xk
+        A = frame.f_locals['A']
+        b = frame.f_locals['b']
+
+        if np.linalg.norm(A*self.x-b) < self.tol:
+            # Reaches optimal tolerance
+            set_in_frame(frame,'istop',9)
+        else:
+            set_in_frame(frame,'istop',0)
+
+
+def set_in_frame(frame, name, value):
+    frame.f_locals[name] = value
+    locals_to_fast(frame, 1)
+
 
 def _test_pdas():
     'Test function of pdas'
