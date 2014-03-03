@@ -11,6 +11,7 @@ from prob import QP
 from randutil import sp_rand
 
 import pdb
+import sys
 
 def Laplace(n):
     'create discretized Laplace operator (in 2 dimensions).'
@@ -100,6 +101,7 @@ def test_control(n=10,beta=1.0e-5,phi=0):
     'Test function to generate a discretized QP.'
     qp = getQP(n,beta,phi)
     pdas = PDAS(qp)
+    pdas.inv_norm = 1e+4
     pdas2 = copy(pdas)
     print 'Solving optimal control problem by exact subproblem solve.'
     pdas.exact_solve()
@@ -107,4 +109,8 @@ def test_control(n=10,beta=1.0e-5,phi=0):
     pdas2.inexact_solve()
 
 if __name__ == '__main__':
-    test_control(100)
+    n = 10
+    if len(sys.argv) >= 2:
+        n = int(sys.argv[1])
+        print n
+    test_control(n)
