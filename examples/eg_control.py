@@ -94,13 +94,14 @@ def getQP(n=10,beta=1.0e-5,phi=0):
     prob['A'] = sp_rand(0,2*n**2,0)
     prob['bl'] = sp_rand(0,1,0)
     prob['bu'] = sp_rand(0,1,0)
-    prob['x0'] = sp_rand(2*n**2,1,0.5)
+    #prob['x0'] = sp_rand(2*n**2,1,0.5)
+    prob['x0'] = matrix(1.0,(2*n**2,1))
     return QP(prob)
 
 def test_control(n=10,beta=1.0e-5,phi=0):
     'Test function to generate a discretized QP.'
     qp = getQP(n,beta,phi)
-    pdas = PDAS(qp)
+    pdas = PDAS(qp,OptTol=1.0e-6,ResTol=1.0e-8)
     pdas.inv_norm = 1e+4
     pdas2 = copy(pdas)
     print 'Solving optimal control problem by exact subproblem solve.'
