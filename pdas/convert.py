@@ -30,7 +30,7 @@ def spmatrix_sparse_to_scipy(A):
     data = np.array(A.V).squeeze()
     rows = np.array(A.I).squeeze()
     cols = np.array(A.J).squeeze()
-    return sparse.coo_matrix( (data, (rows, cols)) )
+    return sparse.coo_matrix( (data, (rows, cols)),shape=A.size )
 
 def spmatrix_to_scipy(A):
     data = np.array(A.V).squeeze()
