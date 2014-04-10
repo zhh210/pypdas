@@ -35,13 +35,12 @@ class PDAS(object):
         n = QP.numvar
         m = QP.numeq
         mi = QP.numineq
-
         self.x = copy(QP.x0)
 
         self.czl = spmatrix([],[],[],(mi,1)) 
         self.czu = spmatrix([],[],[],(mi,1)) 
 
-        self.y   = spmatrix([],[],[],(m,1))
+        self.y   = matrix(1.0,(m,1))
 
         self.zl  = spmatrix([],[],[],(n,1))
         self.zu  = spmatrix([],[],[],(n,1))
@@ -68,7 +67,10 @@ class PDAS(object):
         self.TotalCG = 0
         self.CG_r = matrix([10,100,1000])
         self.correctV = Violations()
-        self.inv_norm = 10
+        if 'inv_norm' in self.option.options.keys():
+            self.inv_norm = self.option['inv_norm']
+        else:
+            self.inv_norm = 10
 
     @property
     def cgiter(self):
@@ -150,7 +152,6 @@ class PDAS(object):
             # Do subspace minimization on current partition
 
             self.ssm()
-
             # Identify which indices are violated
             self.violations = self.identify_violation()
 
@@ -233,6 +234,9 @@ class PDAS(object):
 
         self.unregister('printer',p)
         self.unregister('conditioner',c)
+        self.unregister('monitor',k)
+        self.unregister('collector',col)
+
         return (self.x,self.iter,self.TotalCG,col.res_relative/col.num,col.res_abs/col.num,col.time_elapse,self.state,k.cgiter)
 
 #        self.unregister('conditioner',c)
@@ -344,7 +348,10 @@ class PDAS(object):
         # Fix primal and dual variables
         self.x[self.AL] = self.QP.l[self.AL]
         self.x[self.AU] = self.QP.u[self.AU]
+#        if len(self.I+self.AU) > 0:
         self.zl[self.I+self.AU] = 0
+#        if len(self.I+self.AL) > 0:
+
         self.zu[self.I+self.AL] = 0
 
         if self.czl.size[0] > 0:
@@ -366,8 +373,8 @@ class PDAS(object):
         npx0 = cvxopt_to_numpy_matrix(x0)
 
         # Solve the linear system
-#        collector = Iter_collect(tol=self.option['ResTol'])
-        collector = Iter_collect()
+        collector = Iter_collect(tol=self.option['ResTol'])
+#        collector = Iter_collect()
         cg = minres(npLhs,nprhs,npx0,callback=collector)
         xy = numpy_to_cvxopt_matrix(cg[0])
         self.cgiter = collector.iter
@@ -378,7 +385,9 @@ class PDAS(object):
         ncL = len(self.cAL)
         ncU = len(self.cAU)
         self.x[self.I] = xy[0:nI]
-        self.y = xy[nI:nI + ny]
+        if xy[nI:nI + ny].size[1] == 1:
+            self.y = xy[nI:nI + ny]
+
         if self.czl.size[0] > 0:
             self.czl[self.cAL] = xy[nI+ny:nI+ny+ncL]
             self.czu[self.cAU] = xy[nI+ny+ncL:]
@@ -388,6 +397,7 @@ class PDAS(object):
         # Back substitute to obtain zl, zu
         qp = self.QP
         eq1 = qp.H*self.x + qp.c
+
         if len(qp.Aeq)!=0:
             eq1 = eq1 + qp.Aeq.T*self.y
         if len(self.cAL + self.cAU)!=0:
@@ -490,7 +500,6 @@ class PDAS(object):
         rhs = sparse(matrix([-qp.c[self.I] -qp.H[self.I,self.AL]*qp.l[self.AL] -qp.H[self.I,self.AU]*qp.u[self.AU] ,beq]))
 
         x0 = matrix([self.x[self.I],self.y,self.czl[self.cAL],self.czu[self.cAU]])
-
         return (Lhs,rhs,x0)
 
 def pick_negative(x):
@@ -509,7 +518,7 @@ def pick_negative(x):
 
 class Iter_collect(object):
     'A auxilliary function object to collect number of iterations'
-    def __init__(self,tol = 1.0e-10):
+    def __init__(self,tol = 1.0e-8):
         self.iter = 0
         self.x = None
         self.tol = tol
@@ -521,7 +530,7 @@ class Iter_collect(object):
         A = frame.f_locals['A']
         b = frame.f_locals['b']
 
-        if np.linalg.norm(A*self.x-b) < self.tol:
+        if np.linalg.norm(A*self.x-b,np.inf) < self.tol:
             # Reaches optimal tolerance
             set_in_frame(frame,'istop',9)
         else:
