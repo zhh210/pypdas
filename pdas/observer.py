@@ -5,7 +5,7 @@ from numpy.linalg import norm
 from numpy import inf
 from time import clock
 from cvxopt import matrix
-from cvxopt.blas import nrm2
+from cvxopt.blas import nrm2, iamax
 from scipy.sparse.linalg import minres
 from utility import CG
 
@@ -39,7 +39,7 @@ class conditioner(object):
     option = {
         'CG_res_absolute' : 1.0e-12,
         'CG_res_relative' : 1.0e-3,
-        'identified_estimated_ratio' : 0.8,
+        'identified_estimated_ratio' : 0.5,
         'CG_res_absolute_hard': 1.0e-2,
         }
     def __init__(self,iPDAS):
@@ -60,11 +60,15 @@ class conditioner(object):
 #             or self.all_identified()
              or self.is_CG_res_absolute()
         )
-        # print (self.enforce_exact(),
-        #        self.is_CG_res_absolute() ,
-        #        self.is_CG_res_relative(),
-        #        self.is_identified_estimate(),
-        #        self.all_identified())
+
+        # if satisfied:
+        #     print (not self.enforce_exact(),
+        #            self.is_CG_res_absolute() ,
+        #            # self.is_CG_res_relative(),
+        #            self.at_least_one(),
+        #            self.is_identified_estimate(),
+        #            # self.all_identified()
+        #            )
 
         return satisfied
 
@@ -74,7 +78,12 @@ class conditioner(object):
         # print 'from observer', self.solver.state
         # print 'from observer', self.solver.iter
 
-        return norm(self.solver.CG_r,inf) < self.option['CG_res_absolute']
+        val = norm(self.solver.CG_r,inf) < self.option['CG_res_absolute']
+        if val:
+            # Replace violation set 
+            print val
+            self.solver.correctV = self.solver.violations
+        return val
     
     def is_CG_res_relative(self):
         'Linear solver has satisfied relative tolerance'
@@ -88,7 +97,7 @@ class conditioner(object):
             lenIdentified += len(val)
             lenEstimated += len(getattr(self.solver.violations,key))
         #print lenIdentified, lenEstimated
-        return lenIdentified > self.option['identified_estimated_ratio']*lenEstimated
+        return lenIdentified >= self.option['identified_estimated_ratio']*lenEstimated
 
     def at_least_one(self):
         'At least one violation is identified.'
@@ -135,7 +144,7 @@ def estimate_inv_norm(Lhs,rhs = None,x0 = None):
 
 class monitor(observer):
     '''Monitor class'''
-    def __init__(self,PDAS,recent=6, est_fun = None):
+    def __init__(self,PDAS,recent=5, est_fun = None):
         self.solver = PDAS
         self.est_fun = est_fun
         self.cgiter = 0
@@ -151,13 +160,17 @@ class monitor(observer):
             return
         # Update the kktlist
         pos = self.solver.iter%self.n
+
         self.kktlist[pos] = self.solver.kkt
-        if not None in self.kktlist:
+        if not (None in self.kktlist):
             # Decide if ref-kkt decreases strictly 
-            cur = max([i%self.n for i in range(pos,pos-self.n+1,-1)])
-            pre = max([i%self.n for i in range(pos-1,pos-self.n,-1)])
+            # cur = max([i%self.n for i in range(pos,pos-self.n+1,-1)])
+            cur = self.solver.kkt
+            pre = max([self.kktlist[i%self.n] for i in range(pos-1,pos-self.n,-1)])
+
             if cur >= pre:
                 self.solver.inv_norm *= 1.2
+                self.kktlist[pos] = pre
 
 
 class collector(observer):
@@ -176,7 +189,9 @@ class collector(observer):
 
     def __call__(self,what={}):
         'Collect info of res_raio'
-        self.res_relative += nrm2(self.solver.CG_r)/nrm2(self.solver.CG_r0)
-        self.res_abs += nrm2(self.solver.CG_r)
+        r = self.solver.CG_r
+        r0 = self.solver.CG_r0
+        self.res_relative += abs(r[iamax(r)]/r0[iamax(r0)])
+        self.res_abs += abs(r[iamax(r)])
         self.num += 1
 

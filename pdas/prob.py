@@ -46,8 +46,8 @@ class QP(object):
         self.numeq = 0
         self.numineq = 0
 
-        if self.c:
-            self.numvar = self.c.size[0]
+        if self.H:
+            self.numvar = self.H.size[0]
         if self.Aeq:
             self.numeq = self.Aeq.size[0]
         if self.A:
