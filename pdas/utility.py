@@ -4,14 +4,15 @@ Utility classes and functions that are extensively used in PDAS.
 import re
 import cvxopt
 import inspect, ctypes
-from cvxopt import matrix, spmatrix
+import numpy as np
+from cvxopt import matrix, spmatrix, spdiag
 from randutil import sprandsym, sp_rand
 from copy import copy
 from numpy import inf
 from scipy.sparse.linalg import minres
 from convert import numpy_to_cvxopt_matrix, cvxopt_to_numpy_matrix
 from math import sqrt
-from cvxopt.blas import nrm2
+from cvxopt.blas import nrm2, dot, asum
 
 locals_to_fast = ctypes.pythonapi.PyFrame_LocalsToFast
 locals_to_fast.restype = None
@@ -30,7 +31,7 @@ class optimset(object):
     '''
     default_options = {
         'Solver': 'CG',
-        'OptTol': 1.0e-7,
+        'OptTol': 1.0e-6,
         'ResTol': 1.0e-12,
         'MaxItr': 1000,
         'fun_estinv': None,
@@ -181,7 +182,7 @@ class LinsysWrap(object):
         A = cvxopt_to_numpy_matrix(self.Lhs)
         b = cvxopt_to_numpy_matrix(matrix(self.rhs))
         x0 = cvxopt_to_numpy_matrix(self.x0)
-        self.lin_solver(A,b,x0,tol=1.0e-16,callback=self.callback)
+        self.lin_solver(A,b,x0,tol=1.0e-16,maxiter=1e+9,callback=self.callback)
 
     def callback(self,xk = None):
         'Callback function after each iteration of minres'
@@ -206,9 +207,9 @@ class LinsysWrap(object):
         self.inv_norm = max(nrm2(xy)/nrm2(self.rhs + self.PDAS.CG_r),self.inv_norm)
 
         # Obtain bounds from an estimate of norm(invHii): B
-        if self.PDAS.inv_norm is None or len(self.PDAS._ObserverList['monitor']) < 1:
-            print 'dynamic'
-            self.PDAS.inv_norm = max(self.PDAS.inv_norm, 1.1*self.inv_norm)
+        # if self.PDAS.inv_norm is None or len(self.PDAS._ObserverList['monitor']) < 1:
+        #     print 'dynamic'
+        #     self.PDAS.inv_norm = max(self.PDAS.inv_norm, 1.1*self.inv_norm)
 
         B = self.PDAS.inv_norm
 
@@ -287,6 +288,43 @@ def estimate_range(A,xl,xu):
 
     return (bl,bu)
 
+def poweriter(H,x = None,maxit= 1000,tol=1.0e-2):
+    'Function to estimate the spectral norm of a matrix.'
+    n = H.size[1]
+    if x is None:
+        x = matrix(1.0,(n,1))/sqrt(n)
+
+    vec = H*x
+    norm = dot(x,vec)
+    x = vec/nrm2(vec)
+
+    it = 0
+    for it in range(maxit):
+        norm_pre = copy(norm)
+        vec = H*x
+        x = vec/nrm2(vec)
+        norm = dot(x,vec)
+        if abs(norm-norm_pre) < tol:
+            break
+
+    return (norm,it,x)
+
+def mineig(H,x = None, maxit = 1000, tol=1.0e-2):
+    'Function to use power iteration to obtain mineig of a pd matrix.'
+
+    # Upper bound of the maximum eig
+    n = H.size[1]
+    nrm1 = 0
+    for i in range(n):
+        nrm1 = max(nrm1,asum(matrix(H[i,:])))
+
+#    diag = float(np.linalg.norm(H,1))
+    diag = nrm1
+    Diag = spdiag([diag]*n)
+    norm, it,x = poweriter(Diag - H, x, maxit, tol)
+    norm = diag - norm
+    return (norm,it,x)
+    
 # Functions for internal test
 
 def _test_optimset():
