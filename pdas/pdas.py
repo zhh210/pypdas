@@ -8,8 +8,8 @@ from solver import solver
 from scipy.sparse.linalg import minres
 import numpy as np
 import utility as ut
-from utility import setdiff, intersect, union, CG, estimate_range, TetheredLinsys, Violations, LinsysWrap
-from cvxopt import matrix, spmatrix, sparse, cholmod
+from utility import setdiff, intersect, union, CG, estimate_range, TetheredLinsys, Violations, LinsysWrap, LinsysWrap_c
+from cvxopt import matrix, spmatrix, sparse, cholmod, lapack
 from copy import copy
 from convert import cvxopt_to_numpy_matrix, numpy_to_cvxopt_matrix
 import inspect, ctypes
@@ -501,6 +501,184 @@ class PDAS(object):
 
         x0 = matrix([self.x[self.I],self.y,self.czl[self.cAL],self.czu[self.cAU]])
         return (Lhs,rhs,x0)
+
+class PDASc(PDAS):
+
+    def __init__(self,prob = QP(),Free=[],**kwargs):
+        'Initialize the PDASc'
+        # Initialize the superclass
+        super(PDASc,self).__init__(prob,**kwargs)
+        # Add additional data
+        self.F = Free
+        nf = len(self.F)
+        m = self.QP.numeq
+        Q1 = sparse([self.QP.H[self.F,self.F], self.QP.Aeq[:,self.F] ])
+        Q2 = sparse([self.QP.Aeq[:,self.F].T, spmatrix([],[],[],(m,m)) ])
+        self.ipiv = matrix(0,(nf+m,1))
+        self.Q = matrix([[Q1],[Q2]])
+
+        # Factorize Q, dense
+        lapack.sytrf(self.Q,self.ipiv)
+
+    def inexact_solve(self):
+        'Solve the attached problem by exact solver'
+        # Attach necessary observers, does not work!!
+        self._ObserverList['printer'] = []
+        p = obs.printer(self)
+        k = obs.monitor(self,est_fun = self.option['fun_estinv'])
+        self.register('printer',p)
+#        self.register('monitor',k)
+
+        c = obs.conditioner(self)
+        self.register('conditioner',c)
+        col = obs.collector(self)
+        self.register('collector',col)
+        # Initialize necessary structure
+
+        # Main loop
+
+
+        while self.iter < self.option['MaxItr']:
+            # Fix active primals and inactive duals
+            self._fix()
+
+            # Let the LinsysWrap calculate an inexact solution and modify PDAS
+            L = LinsysWrap_c(self,minres)
+            L.solve()
+
+            # Notify observers about this iteration
+            self.cgiter = L.iter
+            self.notify(['collector','printer'])
+            # Optimality check
+            if self.kkt < self.option['OptTol']:
+                self.state = 'Optimal'
+                break
+            
+            # Obtain a new partition
+            self.newp(by = self.correctV)
+            self.iter += 1
+
+        # When finished running
+
+        # Unregister the conditioner, otherwise may affact next call
+
+        print '-'*80
+        print 'Problem Status          :', self.state
+        print 'Total Iterations        :', self.iter
+        print 'Total Krylov-iterations :', self.TotalCG
+        print 'Avg norm(r)/norm(r0)    : {0:<.2e}'.format(col.res_relative/col.num)
+        print 'Avg norm(r)             : {0:<.2e}'.format(col.res_abs/col.num)
+        print 'Time Elapsed            : {0:<.2e}'.format(col.time_elapse)
+        print 'Total Krylov4estimation :', k.cgiter
+        print '-'*80+'\n\n'
+
+        self.unregister('printer',p)
+        self.unregister('conditioner',c)
+        self.unregister('collector',col)
+
+        return (self.x,self.iter,self.TotalCG,col.res_relative/col.num,col.res_abs/col.num,col.time_elapse,self.state,k.cgiter)
+
+
+
+    def identify_violation_inexact_c(self,lb,ub):
+        'Find correctly identified violation sets from the error bounds'
+        # Estimate violation
+        self.violations = self.identify_violation()
+
+        # Obtain sizes
+        nI = len(self.realI)
+        ny = self.QP.numeq
+        ncL = len(self.cAL)
+        ncU = len(self.cAU)
+
+        # Bound for some variables
+        xI_lb = self.x[self.realI] + lb
+        xI_ub = self.x[self.realI] + ub
+
+        czl_cAL_ub = []
+        czu_cAU_ub = []
+        if self.czl.size[0] > 0:
+            czl_cAL_ub = self.czl[self.cAL] + ub[nI+ny:nI+ny+ncL]
+            czu_cAU_ub = self.czu[self.cAU] + ub[nI+ny+ncL:]
+
+        # Error bounds for some variables
+        err_xI_lb = lb
+        err_xI_ub = ub
+
+        qp = self.QP
+#        eq_err_zl = sparse([[qp.H[self.AL,self.realI]], [qp.Aeq[:,self.AL].T], [-qp.A[self.cAL,self.AL].T],[qp.A[self.cAU,self.AL].T]])
+        eq_err_zu = -qp.H[self.AU,self.realI]
+#        eq_err_Ax = sparse([qp.A[self.cI,self.realI]])
+
+        # Bound for other variables
+#        zlAL_ub = self.zl[self.AL] + estimate_range(eq_err_zl,lb,ub)[1]
+        zuAU_ub = self.zu[self.AU] + estimate_range(eq_err_zu,lb,ub)[1]
+#        err_Ax_lb, err_Ax_ub = estimate_range(eq_err_Ax,err_xI_lb,err_xI_ub)
+#        Ax_cI_lb = self.Ax[self.cI] + err_Ax_lb
+#        Ax_cI_ub = self.Ax[self.cI] + err_Ax_ub
+ 
+        # Generate the correctly identified violated sets
+        correct = self.correctV
+        Vxl  = [] #pick_negative(xI_ub - qp.l[self.realI])[1]
+        Vxu  = pick_negative(qp.u[self.realI] - xI_lb)[1]
+
+        Vxcl = [] #pick_negative(Ax_cI_ub - qp.bl[self.cI])[1]
+        Vxcu = [] #pick_negative(qp.bu[self.cI] - Ax_cI_lb)[1]
+        Vzl  = [] #pick_negative(zlAL_ub)[1]
+        Vzu  = pick_negative(zuAU_ub)[1]
+        Vzcl = [] #pick_negative(czl_cAL_ub)[1]
+        Vzcu = [] #pick_negative(czu_cAU_ub)[1]
+
+
+        correct.Vxl  = [self.realI[i] for i in Vxl]
+        correct.Vxu  = [self.realI[i] for i in Vxu]
+                
+        correct.Vxcl = [self.cI[i] for i in Vxcl]
+        correct.Vxcu = [self.cI[i] for i in Vxcu]
+        correct.Vzl  = [self.AL[i] for i in Vzl]
+        correct.Vzu  = [self.AU[i] for i in Vzu]
+        correct.Vzcl = [self.cAL[i] for i in Vzcl]
+        correct.Vzcu = [self.cAU[i] for i in Vzcu]
+
+
+        lenV = len(correct.Vxl + correct.Vxu+correct.Vxcl+correct.Vxcu+correct.Vzl+correct.Vzu+correct.Vzcl+correct.Vzcu)
+        return lenV
+
+    def _get_lineq_c(self):
+        'Extract linear equation coefficients from QP and a partition'
+        qp = self.QP
+
+        # Inactive but not free
+        self.realI = setdiff(self.I,self.F)
+
+        # Put in the order of [realI,F]
+        pI = self.realI + self.F
+
+        # Concatenate active constraints with eq constraints
+
+        Aeq = sparse([qp.Aeq,-qp.A[self.cAL,:],qp.A[self.cAU,:]])
+        beq = matrix([qp.beq,-qp.bl[self.cAL],qp.bu[self.cAU]])
+        beq -= Aeq[:,self.AL]*qp.l[self.AL] + Aeq[:,self.AU]*qp.u[self.AU]
+        Aeq = Aeq[:,pI]
+        # [H(I,I);Aeq(:,I)]
+        Lhs = sparse([qp.H[pI,pI], Aeq ])
+        row_Aeq, col_Aeq = Aeq.size
+        # [Aeq(:,I)';zeros]
+        if row_Aeq != 0:
+            AeqT0 = sparse([Aeq.T,spmatrix([0],[row_Aeq-1],[row_Aeq-1])])
+        else:
+            AeqT0 = Aeq.T
+        # Concatenate by collumn
+        Lhs = sparse([[Lhs],[AeqT0]])
+        # Concatenat to yield rhs
+        rhs = sparse(matrix([-qp.c[pI] -qp.H[pI,self.AL]*qp.l[self.AL] -qp.H[pI,self.AU]*qp.u[self.AU] ,beq]))
+
+        x0 = matrix([self.x[pI],self.y,self.czl[self.cAL],self.czu[self.cAU]])
+        return (Lhs,rhs,x0)
+
+
+    def test():
+        print 'PDASs inherited from PDAS.'
 
 def pick_negative(x):
     'An auxilliary function to find positions of negative(violation)'

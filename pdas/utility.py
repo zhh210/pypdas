@@ -1,11 +1,11 @@
 '''
 Utility classes and functions that are extensively used in PDAS.
 '''
-import re
+import re, pdb
 import cvxopt
 import inspect, ctypes
 import numpy as np
-from cvxopt import matrix, spmatrix, spdiag
+from cvxopt import matrix, spmatrix, spdiag, lapack
 from randutil import sprandsym, sp_rand
 from copy import copy
 from numpy import inf
@@ -13,6 +13,7 @@ from scipy.sparse.linalg import minres
 from convert import numpy_to_cvxopt_matrix, cvxopt_to_numpy_matrix
 from math import sqrt
 from cvxopt.blas import nrm2, dot, asum
+import observer as obs
 
 locals_to_fast = ctypes.pythonapi.PyFrame_LocalsToFast
 locals_to_fast.restype = None
@@ -230,6 +231,84 @@ class LinsysWrap(object):
             set_in_frame(inspect.currentframe().f_back,'istop',9)
             # ctypes.pythonapi.PyCell_Set(id(istop),9)
 
+class LinsysWrap_c(LinsysWrap):
+    'Special wrapper for optimal control problems'
+    def __init__(self,PDAS,lin_solver = minres):
+        # Initialize LinsysWrap
+        super(LinsysWrap_c,self).__init__(PDAS,lin_solver)
+        self.Lhs, self.rhs, self.x0 = PDAS._get_lineq_c()
+        # Initialize some other
+        pdas = self.PDAS
+        qp = pdas.QP
+        self.SI = matrix([qp.H[pdas.F,pdas.realI], qp.Aeq[:,pdas.realI]])
+        self.SA = matrix([qp.H[pdas.F,pdas.AU], qp.Aeq[:,pdas.AU]])
+
+        # Compute inv(Q)*SI
+        QinvSI = copy(self.SI)
+        lapack.sytrs(pdas.Q,pdas.ipiv,QinvSI)
+
+        self.RI = qp.H[pdas.realI,pdas.realI] - self.SI.T*QinvSI
+
+    # Override the callback function
+    def callback(self,xk = None):
+        'Callback function after each iteration of minres'
+
+        # Access current iteration from lin_solver
+        
+        xy = numpy_to_cvxopt_matrix(xk)
+
+        # Set x[I], y, and czl czl(if nonempty)
+        nI = len(self.PDAS.I)
+        ny = self.PDAS.QP.numeq
+        ncL = len(self.PDAS.cAL)
+        ncU = len(self.PDAS.cAU)
+        self.PDAS.x[self.PDAS.realI + self.PDAS.F] = xy[:nI]
+        self.PDAS.y = xy[nI:]
+        if self.PDAS.czl.size[0] > 0:
+            self.PDAS.czl[self.PDAS.cAL] = xy[nI+ny:nI+ny+ncL]
+            self.PDAS.czu[self.PDAS.cAU] = xy[nI+ny+ncL:]
+
+        # Set residuals, and inv_norm estimate
+        self.PDAS.CG_r = self.Lhs*xy - self.rhs
+
+        # Compute matrix inverse norm
+        if self.RI.size != (0,0):
+#            gamma = obs.estimate_inv_norm(self.RI)[0]
+            gamma = 1/mineig(self.RI)[0]
+        else:
+            gamma = 0
+
+        # Update on pdas
+        self.PDAS.inv_norm = gamma
+
+        # Compute tilde v
+        Qinvv = self.PDAS.CG_r[len(self.PDAS.realI):]
+        rI = self.PDAS.CG_r[:len(self.PDAS.realI)]
+        lapack.sytrs(self.PDAS.Q, self.PDAS.ipiv, Qinvv)
+
+        viration = nrm2(rI -self.SI.T*Qinvv)*gamma*matrix(1.0,(len(self.PDAS.realI),1) )
+
+        self.err_lb = - viration
+        self.err_ub = viration
+
+        # Update other variables
+        self.PDAS._back_substitute()
+
+        # Caveat z_A shifted
+        self.PDAS.zu[self.PDAS.AU] = self.PDAS.zu[self.PDAS.AU] + self.SA.T*Qinvv
+
+        self.PDAS.identify_violation_inexact_c(self.err_lb,self.err_ub)
+        frame = inspect.currentframe().f_back
+        self.iter = frame.f_locals['itn']
+
+
+        # If condition satisfied, terminate the linear equation solve
+        if self.PDAS.ask('conditioner') is True:
+            set_in_frame(inspect.currentframe().f_back,'istop',9)
+            # ctypes.pythonapi.PyCell_Set(id(istop),9)
+    
+
+
 def set_in_frame(frame, name, value):
     frame.f_locals[name] = value
     locals_to_fast(frame, 1)
@@ -264,7 +343,7 @@ def estimate_range(A,xl,xu):
     # For sparse matrices
     Apos.V = cvxopt.max(Apos.V,0)
     Aneg.V = cvxopt.min(Aneg.V,0)
-
+#    pdb.set_trace()
     bl = Apos*xl + Aneg*xu
     bu = Apos*xu + Aneg*xl
 

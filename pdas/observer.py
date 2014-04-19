@@ -61,14 +61,14 @@ class conditioner(object):
              or self.is_CG_res_absolute()
         )
 
-        # if satisfied:
-        #     print (not self.enforce_exact(),
-        #            self.is_CG_res_absolute() ,
-        #            # self.is_CG_res_relative(),
-        #            self.at_least_one(),
-        #            self.is_identified_estimate(),
-        #            # self.all_identified()
-        #            )
+        if satisfied:
+            print (not self.enforce_exact(),
+                   self.is_CG_res_absolute() ,
+                   # self.is_CG_res_relative(),
+                   self.at_least_one(),
+                   self.is_identified_estimate(),
+                   # self.all_identified()
+                   )
 
         return satisfied
 
@@ -81,7 +81,6 @@ class conditioner(object):
         val = norm(self.solver.CG_r,inf) < self.option['CG_res_absolute']
         if val:
             # Replace violation set 
-            print val
             self.solver.correctV = self.solver.violations
         return val
     
