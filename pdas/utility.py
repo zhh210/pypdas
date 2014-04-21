@@ -248,7 +248,7 @@ class LinsysWrap_c(LinsysWrap):
         lapack.sytrs(pdas.Q,pdas.ipiv,QinvSI)
 
         self.RI = qp.H[pdas.realI,pdas.realI] - self.SI.T*QinvSI
-
+        self.SaQinvSi = self.SA.T*QinvSI
     # Override the callback function
     def callback(self,xk = None):
         'Callback function after each iteration of minres'
@@ -297,7 +297,7 @@ class LinsysWrap_c(LinsysWrap):
         # Caveat z_A shifted
         self.PDAS.zu[self.PDAS.AU] = self.PDAS.zu[self.PDAS.AU] + self.SA.T*Qinvv
 
-        self.PDAS.identify_violation_inexact_c(self.err_lb,self.err_ub)
+        self.PDAS.identify_violation_inexact_c(self.err_lb,self.err_ub, self.SaQinvSi)
         frame = inspect.currentframe().f_back
         self.iter = frame.f_locals['itn']
 

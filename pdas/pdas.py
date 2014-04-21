@@ -580,7 +580,7 @@ class PDASc(PDAS):
 
 
 
-    def identify_violation_inexact_c(self,lb,ub):
+    def identify_violation_inexact_c(self,lb,ub,SaQinvSi):
         'Find correctly identified violation sets from the error bounds'
         # Estimate violation
         self.violations = self.identify_violation()
@@ -607,7 +607,7 @@ class PDASc(PDAS):
 
         qp = self.QP
 #        eq_err_zl = sparse([[qp.H[self.AL,self.realI]], [qp.Aeq[:,self.AL].T], [-qp.A[self.cAL,self.AL].T],[qp.A[self.cAU,self.AL].T]])
-        eq_err_zu = -qp.H[self.AU,self.realI]
+        eq_err_zu = sparse(-qp.H[self.AU,self.realI] + SaQinvSi)
 #        eq_err_Ax = sparse([qp.A[self.cI,self.realI]])
 
         # Bound for other variables
