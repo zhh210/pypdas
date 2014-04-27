@@ -233,7 +233,7 @@ class LinsysWrap(object):
 
 class LinsysWrap_c(LinsysWrap):
     'Special wrapper for optimal control problems'
-    def __init__(self,PDAS,lin_solver = minres):
+    def __init__(self,PDAS,lin_solver = minres, dynamic = False):
         # Initialize LinsysWrap
         super(LinsysWrap_c,self).__init__(PDAS,lin_solver)
         self.Lhs, self.rhs, self.x0 = PDAS._get_lineq_c()
@@ -249,6 +249,21 @@ class LinsysWrap_c(LinsysWrap):
 
         self.RI = qp.H[pdas.realI,pdas.realI] - self.SI.T*QinvSI
         self.SaQinvSi = self.SA.T*QinvSI
+
+        # Compute matrix inverse norm
+        if self.RI.size != (0,0) and not dynamic:
+            gamma, powerit = obs.estimate_inv_norm(self.RI)
+            # igamma, powerit, tmp = mineig(self.RI)
+            # gamma = 1/igamma
+        elif not dynamic:
+            gamma = 0
+            powerit = 0
+
+        # Update on pdas
+        if not dynamic:
+            self.PDAS.inv_norm = gamma
+            self.PDAS._ObserverList['collector'][0].poweriter += powerit
+
     # Override the callback function
     def callback(self,xk = None):
         'Callback function after each iteration of minres'
@@ -271,22 +286,13 @@ class LinsysWrap_c(LinsysWrap):
         # Set residuals, and inv_norm estimate
         self.PDAS.CG_r = self.Lhs*xy - self.rhs
 
-        # Compute matrix inverse norm
-        if self.RI.size != (0,0):
-#            gamma = obs.estimate_inv_norm(self.RI)[0]
-            gamma = 1/mineig(self.RI)[0]
-        else:
-            gamma = 0
-
-        # Update on pdas
-        self.PDAS.inv_norm = gamma
 
         # Compute tilde v
         Qinvv = self.PDAS.CG_r[len(self.PDAS.realI):]
         rI = self.PDAS.CG_r[:len(self.PDAS.realI)]
         lapack.sytrs(self.PDAS.Q, self.PDAS.ipiv, Qinvv)
 
-        viration = nrm2(rI -self.SI.T*Qinvv)*gamma*matrix(1.0,(len(self.PDAS.realI),1) )
+        viration = nrm2(rI -self.SI.T*Qinvv)*self.PDAS.inv_norm*matrix(1.0,(len(self.PDAS.realI),1) )
 
         self.err_lb = - viration
         self.err_ub = viration

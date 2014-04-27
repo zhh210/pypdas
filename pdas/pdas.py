@@ -127,7 +127,8 @@ class PDAS(object):
                 for observer in sublist:
                     observer(what)
             else:
-                print('{0} is not registered to the observerlist!'.format(obstype))
+                pass
+                #print('{0} is not registered to the observerlist!'.format(obstype))
 
     def ask(self,observer, what = {}):
         'Ask obserers, return its response'
@@ -520,14 +521,15 @@ class PDASc(PDAS):
         # Factorize Q, dense
         lapack.sytrf(self.Q,self.ipiv)
 
-    def inexact_solve(self):
+    def inexact_solve(self,dynamic = False):
         'Solve the attached problem by exact solver'
         # Attach necessary observers, does not work!!
         self._ObserverList['printer'] = []
         p = obs.printer(self)
         k = obs.monitor(self,est_fun = self.option['fun_estinv'])
         self.register('printer',p)
-#        self.register('monitor',k)
+        if dynamic:
+            self.register('monitor',k)
 
         c = obs.conditioner(self)
         self.register('conditioner',c)
@@ -543,12 +545,12 @@ class PDASc(PDAS):
             self._fix()
 
             # Let the LinsysWrap calculate an inexact solution and modify PDAS
-            L = LinsysWrap_c(self,minres)
+            L = LinsysWrap_c(self,minres,dynamic)
             L.solve()
 
             # Notify observers about this iteration
             self.cgiter = L.iter
-            self.notify(['collector','printer'])
+            self.notify(['collector','printer','monitor'])
             # Optimality check
             if self.kkt < self.option['OptTol']:
                 self.state = 'Optimal'
@@ -569,14 +571,14 @@ class PDASc(PDAS):
         print 'Avg norm(r)/norm(r0)    : {0:<.2e}'.format(col.res_relative/col.num)
         print 'Avg norm(r)             : {0:<.2e}'.format(col.res_abs/col.num)
         print 'Time Elapsed            : {0:<.2e}'.format(col.time_elapse)
-        print 'Total Krylov4estimation :', k.cgiter
+        print 'Total Krylov4estimation :', col.poweriter
         print '-'*80+'\n\n'
 
         self.unregister('printer',p)
         self.unregister('conditioner',c)
         self.unregister('collector',col)
 
-        return (self.x,self.iter,self.TotalCG,col.res_relative/col.num,col.res_abs/col.num,col.time_elapse,self.state,k.cgiter)
+        return (self.x,self.iter,self.TotalCG,col.res_relative/col.num,col.res_abs/col.num,col.time_elapse,self.state,col.poweriter)
 
 
 

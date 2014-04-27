@@ -8,6 +8,7 @@ from cvxopt import matrix
 from cvxopt.blas import nrm2, iamax
 from scipy.sparse.linalg import minres
 from utility import CG
+from copy import copy
 
 class observer(object):
     '''Base class for observer '''
@@ -39,7 +40,7 @@ class conditioner(object):
     option = {
         'CG_res_absolute' : 1.0e-12,
         'CG_res_relative' : 1.0e-3,
-        'identified_estimated_ratio' : 0.5,
+        'identified_estimated_ratio' : 0.8,
         'CG_res_absolute_hard': 1.0e-2,
         }
     def __init__(self,iPDAS):
@@ -61,14 +62,14 @@ class conditioner(object):
              or self.is_CG_res_absolute()
         )
 
-        if satisfied:
-            print (not self.enforce_exact(),
-                   self.is_CG_res_absolute() ,
-                   # self.is_CG_res_relative(),
-                   self.at_least_one(),
-                   self.is_identified_estimate(),
-                   # self.all_identified()
-                   )
+        # if satisfied:
+        #     print (not self.enforce_exact(),
+        #            self.is_CG_res_absolute() ,
+        #            # self.is_CG_res_relative(),
+        #            self.at_least_one(),
+        #            self.is_identified_estimate(),
+        #            # self.all_identified()
+        #            )
 
         return satisfied
 
@@ -130,12 +131,20 @@ def estimate_inv_norm(Lhs,rhs = None,x0 = None):
     'Auxilliary function to estimate upper bound of inv norm of Lhs'
     if rhs is None:
         rhs = matrix(1,(Lhs.size[0],1))
-    cg = CG(Lhs,rhs,x0)
-    Ax = Lhs*cg.x
+    # Convert Lhs into an Z-matrix
+    Lhs_cp = copy(Lhs)
+    nrow, ncol = Lhs.size
+    for i in range(nrow):
+        for j in range(ncol):
+            if Lhs[i,j] > 0:
+                Lhs_cp[i,j] *= -1
+
+    cg = CG(Lhs_cp,rhs,x0)
+    Ax = Lhs_cp*cg.x
     v = [i for i in Ax if i < 0]
     while len(v) > 0:# or min(Ax)<1e-16:
         cg.iterate()
-        Ax = Lhs*cg.x
+        Ax = Lhs_cp*cg.x
         #print matrix([cg.x.T, Ax.T])
         #print min(Ax)
         v = [i for i in Ax if i < 0]
@@ -180,7 +189,7 @@ class collector(observer):
         self.res_abs = 0
         self.num = 0
         self.t = clock()
-
+        self.poweriter = 0
     @property
     def time_elapse(self):
         'Compute the time from initialization until now'
