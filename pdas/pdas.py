@@ -548,7 +548,7 @@ class PDASc(PDAS):
         # output = mlab.run_func('saveldp.m',{'arg1':filename})
 
         # Execute shell command
-        cmd = 'matlab -r '+'"'+ "saveldp('"+filename + "');exit" + '"'
+        cmd = 'matlab -r '+'"'+ "saveldp('"+filename + "');quit" + '"'
         print cmd
         os.system(cmd)
         data = read(filename+'.mat')
