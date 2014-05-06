@@ -240,15 +240,27 @@ class LinsysWrap_c(LinsysWrap):
         # Initialize some other
         pdas = self.PDAS
         qp = pdas.QP
-        self.SI = matrix([qp.H[pdas.F,pdas.realI], qp.Aeq[:,pdas.realI]])
-        self.SA = matrix([qp.H[pdas.F,pdas.AU], qp.Aeq[:,pdas.AU]])
+        self.SI = pdas.P.T*matrix([qp.H[pdas.F,pdas.realI], qp.Aeq[:,pdas.realI]])
+        self.SA = pdas.P.T*matrix([qp.H[pdas.F,pdas.AU], qp.Aeq[:,pdas.AU]])
 
-        # Compute inv(Q)*SI
-        QinvSI = copy(self.SI)
-        lapack.sytrs(pdas.Q,pdas.ipiv,QinvSI)
+        # Compute SaQinvSi, option 1
+        # QinvSI = copy(self.SI)
 
-        self.RI = qp.H[pdas.realI,pdas.realI] - self.SI.T*QinvSI
-        self.SaQinvSi = self.SA.T*QinvSI
+        # lapack.sytrs(pdas.Q,pdas.ipiv,QinvSI)
+        
+        # self.RI = qp.H[pdas.realI,pdas.realI] - self.SI.T*QinvSI
+        # self.SaQinvSi = self.SA.T*QinvSI
+
+        # Compute SaQinvSi, option 2
+        LinvSI = copy(self.SI)
+        LinvSA = copy(self.SA)
+
+        lapack.trtrs(pdas.LQ,LinvSI)
+        lapack.trtrs(pdas.LQ,LinvSA)
+        self.SaQinvSi = LinvSA.T*pdas.Dinv*LinvSI
+        self.RI = qp.H[pdas.realI,pdas.realI] - LinvSI.T*pdas.Dinv*LinvSI
+
+        self.correct_inv = dynamic
 
         # Compute matrix inverse norm
         if self.RI.size != (0,0) and not dynamic:
@@ -265,11 +277,12 @@ class LinsysWrap_c(LinsysWrap):
             self.PDAS._ObserverList['collector'][0].poweriter += powerit
 
     # Override the callback function
-    def callback(self,xk = None):
+    def callback(self,xk = None, every = 10):
         'Callback function after each iteration of minres'
+        self.iter += 1
+
 
         # Access current iteration from lin_solver
-        
         xy = numpy_to_cvxopt_matrix(xk)
 
         # Set x[I], y, and czl czl(if nonempty)
@@ -286,10 +299,18 @@ class LinsysWrap_c(LinsysWrap):
         # Set residuals, and inv_norm estimate
         self.PDAS.CG_r = self.Lhs*xy - self.rhs
 
+        # If iter not modulo of 'every', do nothing
+        if self.iter % every != 0:
+            return
+
+        if self.correct_inv:
+            self.inv_norm = min(1.0e+8,max(nrm2(xy)/nrm2(self.rhs + self.PDAS.CG_r),self.inv_norm))
+
 
         # Compute tilde v
         Qinvv = self.PDAS.CG_r[len(self.PDAS.realI):]
         rI = self.PDAS.CG_r[:len(self.PDAS.realI)]
+
         lapack.sytrs(self.PDAS.Q, self.PDAS.ipiv, Qinvv)
 
         viration = nrm2(rI -self.SI.T*Qinvv)*self.PDAS.inv_norm*matrix(1.0,(len(self.PDAS.realI),1) )
@@ -305,13 +326,13 @@ class LinsysWrap_c(LinsysWrap):
 
         self.PDAS.identify_violation_inexact_c(self.err_lb,self.err_ub, self.SaQinvSi)
         frame = inspect.currentframe().f_back
-        self.iter = frame.f_locals['itn']
+        # self.iter = frame.f_locals['itn']
 
 
         # If condition satisfied, terminate the linear equation solve
         if self.PDAS.ask('conditioner') is True:
             set_in_frame(inspect.currentframe().f_back,'istop',9)
-            # ctypes.pythonapi.PyCell_Set(id(istop),9)
+            #ctypes.pythonapi.PyCell_Set(id('istop'),9)
     
 
 

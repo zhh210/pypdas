@@ -1,7 +1,7 @@
 '''
 Interface of primal-dual active-set method.
 '''
-import pdb
+import pdb,os, random, string, time
 import observer as obs
 from prob import QP, randQP
 from solver import solver
@@ -9,10 +9,12 @@ from scipy.sparse.linalg import minres
 import numpy as np
 import utility as ut
 from utility import setdiff, intersect, union, CG, estimate_range, TetheredLinsys, Violations, LinsysWrap, LinsysWrap_c
-from cvxopt import matrix, spmatrix, sparse, cholmod, lapack
+from cvxopt import matrix, spmatrix, sparse, cholmod, lapack, spdiag
 from copy import copy
 from convert import cvxopt_to_numpy_matrix, numpy_to_cvxopt_matrix
 import inspect, ctypes
+from matfile import read, write
+from pymatbridge import Matlab
 
 locals_to_fast = ctypes.pythonapi.PyFrame_LocalsToFast
 locals_to_fast.restype = None
@@ -453,6 +455,7 @@ class PDAS(object):
         qp = self.QP
         # KKT equations
         eq1 = qp.H*self.x + qp.c - self.zl + self.zu
+
         if len(qp.Aeq)!=0:
             eq1 = eq1 + qp.Aeq.T*self.y
         if len(self.cAL + self.cAU)!=0:
@@ -469,7 +472,7 @@ class PDAS(object):
         feas_x    = matrix([feas_x_l,feas_x_u])
         feas_zl   = matrix(filter(lambda x: x < 0 ,self.zl))
         feas_zu   = matrix(filter(lambda x: x < 0 ,self.zu))
-
+#        pdb.set_trace()
         return np.linalg.norm(matrix([eq1,eq2,feas_Ax,feas_x,feas_zl,feas_zu]),np.inf)
 
     def _compute_obj(self):
@@ -515,11 +518,45 @@ class PDASc(PDAS):
         m = self.QP.numeq
         Q1 = sparse([self.QP.H[self.F,self.F], self.QP.Aeq[:,self.F] ])
         Q2 = sparse([self.QP.Aeq[:,self.F].T, spmatrix([],[],[],(m,m)) ])
-        self.ipiv = matrix(0,(nf+m,1))
-        self.Q = matrix([[Q1],[Q2]])
 
-        # Factorize Q, dense
+        self.ipiv = matrix(1,(nf+m,1))
+        self.Q = matrix([[Q1],[Q2]])
         lapack.sytrf(self.Q,self.ipiv)
+        # LDL factorization of Q, dense, option 1
+        # lapack.sytrf(self.Q,self.ipiv)
+        # self.DiagQi = spdiag([self.Q[i,i] for i in range(nf+m)])
+        # self.LQ = copy(self.Q)
+        # for i in range(nf+m):
+        #     self.LQ[i,i] = 1
+        #     for j in range(i+1,nf+m):
+        #         self.LQ[i,j] = 0
+
+        # LDL factorization of Q, dense, option 2 by calling Matlab library
+        # mlab = Matlab()
+        # mlab.start()
+        filename = 'temp/'+''.join([random.choice(string.ascii_letters + string.digits) for n in xrange(32)])
+        s = dict()
+        s['A'] = sparse([[Q1],[Q2]])
+        write(filename+'.mat',s)
+        d = '/home/zhh210/workspace/pypdas/numeric/control/'
+        # Memory failure when size is large
+        # output = mlab.run_func('getldp.m',{'arg1':filename})
+
+        # self.LQ = matrix(output['result']['L'])
+        # self.Dinv = matrix(output['result']['Dinv'])
+        # self.P = matrix(output['result']['P'])
+        # output = mlab.run_func('saveldp.m',{'arg1':filename})
+
+        # Execute shell command
+        cmd = 'matlab -r '+'"'+ "saveldp('"+filename + "');exit" + '"'
+        print cmd
+        os.system(cmd)
+        data = read(filename+'.mat')
+        self.LQ = matrix(data['L'])
+        self.Dinv = blockinv(data['D'])
+        self.P = data['P']
+        #mlab.stop()
+        
 
     def inexact_solve(self,dynamic = False):
         'Solve the attached problem by exact solver'
@@ -721,6 +758,25 @@ def set_in_frame(frame, name, value):
     frame.f_locals[name] = value
     locals_to_fast(frame, 1)
 
+
+def blockinv(M):
+    'Function to compute inverse of 1x1 or 2x2 block matrix'
+    i = 0
+    while i < M.size[0]-1:
+        if M[i,i+1] != 0:
+            tmp = M[i,i]
+            M[i:i+1,i:i+1] /= M[i,i]*M[i+1,i+1] - M[i,i+1]*M[i+1,i]
+            M[i,i] = M[i+1,i+1]
+            M[i+1,i+1] = tmp
+            M[i,i+1] *= -1
+            M[i+1,i] *= -1
+            i += 1
+        else:
+            M[i,i] = 1/M[i,i]
+        i += 1
+    if i == M.size[0] -1 and M[i-1,i] != 0:
+        M[i,i] = 1/M[i,i]
+    return M
 
 def _test_pdas():
     'Test function of pdas'

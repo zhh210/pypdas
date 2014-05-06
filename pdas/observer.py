@@ -41,7 +41,7 @@ class conditioner(object):
         'CG_res_absolute' : 1.0e-12,
         'CG_res_relative' : 1.0e-3,
         'identified_estimated_ratio' : 0.8,
-        'CG_res_absolute_hard': 1.0e-2,
+        'CG_res_absolute_hard': 1.0e-3,
         }
     def __init__(self,iPDAS):
         'Attach conditioner to solver iPDAS'
