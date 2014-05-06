@@ -14,7 +14,7 @@ from copy import copy
 from convert import cvxopt_to_numpy_matrix, numpy_to_cvxopt_matrix
 import inspect, ctypes
 from matfile import read, write
-from pymatbridge import Matlab
+#from pymatbridge import Matlab
 
 locals_to_fast = ctypes.pythonapi.PyFrame_LocalsToFast
 locals_to_fast.restype = None
@@ -553,7 +553,7 @@ class PDASc(PDAS):
         os.system(cmd)
         data = read(filename+'.mat')
         self.LQ = matrix(data['L'])
-        self.Dinv = blockinv(data['D'])
+        self.Dinv = data['Dinv']
         self.P = data['P']
         #mlab.stop()
         
